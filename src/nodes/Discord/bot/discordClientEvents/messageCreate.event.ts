@@ -3,8 +3,8 @@ import { Client, TextChannel } from 'discord.js'
 import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default async function (client: Client) {
-  client.on('messageCreate', async (message) => {
+export default function (client: Client) {
+  client.on('messageCreate', (message) => {
     try {
       if (message.author.system) return
       const userRoles = message.member?.roles.cache.map((role) => role.id)
@@ -42,7 +42,7 @@ export default async function (client: Client) {
                 const channel = client.channels.cache.get(message.channelId)
                 const placeholder = await (channel as TextChannel)
                   .send(trigger.placeholder)
-                  .catch((e: any) => addLog(`${e}`, client))
+                  .catch((e: Error) => addLog(`${e.message}`, client))
                 if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
               }
             }

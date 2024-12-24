@@ -19,9 +19,9 @@ export default {
       )
   },
 
-  executeCommand: async (param: boolean | undefined): Promise<string> => {
+  executeCommand: (param: boolean | undefined): string => {
     if (param === undefined) state.testMode = !state.testMode
     else state.testMode = param
-    return 'Test mode: ' + state.testMode
+    return `Test mode: ${state.testMode}`
   },
 }

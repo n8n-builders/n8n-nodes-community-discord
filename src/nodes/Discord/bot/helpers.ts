@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { Client, Message, User } from 'discord.js'
+import { Client, Message, TextChannel, User } from 'discord.js'
 import { hexoid } from 'hexoid'
 import { INodePropertyOptions } from 'n8n-workflow'
 import ipc from 'node-ipc'
@@ -16,11 +16,11 @@ export interface ICredentials {
 export const connection = (credentials: ICredentials): Promise<string> => {
   return new Promise((resolve, reject) => {
     if (!credentials || !credentials.token || !credentials.clientId) {
-      reject('credentials missing')
+      reject(new Error('credentials missing'))
       return
     }
 
-    const timeout = setTimeout(() => reject('timeout'), 15000)
+    const timeout = setTimeout(() => reject(new Error('timeout')), 15000)
 
     ipc.config.retry = 1500
     ipc.connectTo('bot', () => {
@@ -28,9 +28,9 @@ export const connection = (credentials: ICredentials): Promise<string> => {
 
       ipc.of.bot.on('credentials', (data: string) => {
         clearTimeout(timeout)
-        if (data === 'error') reject('Invalid credentials')
-        else if (data === 'missing') reject('Token or clientId missing')
-        else if (data === 'login') reject('Already logging in')
+        if (data === 'error') reject(new Error('Invalid credentials'))
+        else if (data === 'missing') reject(new Error('Token or clientId missing'))
+        else if (data === 'login') reject(new Error('Already logging in'))
         else if (data === 'different') resolve('Already logging in with different credentials')
         else resolve(data) // ready / already
       })
@@ -38,12 +38,11 @@ export const connection = (credentials: ICredentials): Promise<string> => {
   })
 }
 
-export const getChannels = async (that: any): Promise<INodePropertyOptions[]> => {
+export const getChannels = async (credentials: ICredentials): Promise<INodePropertyOptions[]> => {
   const endMessage = ' - Close and reopen this node modal once you have made changes.'
 
-  const credentials = await that.getCredentials('discordApi').catch((e: any) => e)
-  const res = await connection(credentials).catch((e) => e)
-  if (!['ready', 'already'].includes(res)) {
+  const res = await connection(credentials).catch((e: Error) => e)
+  if (typeof res !== 'string' || !['ready', 'already'].includes(res)) {
     return [
       {
         name: res + endMessage,
@@ -53,27 +52,27 @@ export const getChannels = async (that: any): Promise<INodePropertyOptions[]> =>
   }
 
   const channelsRequest = () =>
-    new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(''), 5000)
+    new Promise<INodePropertyOptions[]>((resolve) => {
+      const timeout = setTimeout(() => resolve([]), 5000)
 
       ipc.config.retry = 1500
       ipc.connectTo('bot', () => {
         ipc.of.bot.emit('list:channels')
 
-        ipc.of.bot.on('list:channels', (data: { name: string; value: string }[]) => {
+        ipc.of.bot.on('list:channels', (data: INodePropertyOptions[]) => {
           clearTimeout(timeout)
           resolve(data)
         })
       })
     })
 
-  const channels = await channelsRequest().catch((e) => e)
+  const channels = await channelsRequest().catch((e: Error) => e)
 
   let message = 'Unexpected error'
 
   if (channels) {
     if (Array.isArray(channels) && channels.length) return channels
-    else message = 'Your Discord server has no text channels, please add at least one text channel' + endMessage
+    else message = `Your Discord server has no text channels, please add at least one text channel ${endMessage}`
   }
 
   return [
@@ -89,12 +88,11 @@ export interface IRole {
   id: string
 }
 
-export const getRoles = async (that: any): Promise<INodePropertyOptions[]> => {
+export const getRoles = async (credentials: ICredentials): Promise<INodePropertyOptions[]> => {
   const endMessage = ' - Close and reopen this node modal once you have made changes.'
 
-  const credentials = await that.getCredentials('discordApi').catch((e: any) => e)
-  const res = await connection(credentials).catch((e) => e)
-  if (!['ready', 'already'].includes(res)) {
+  const res = await connection(credentials).catch((e: Error) => e)
+  if (typeof res !== 'string' || !['ready', 'already'].includes(res)) {
     return [
       {
         name: res + endMessage,
@@ -104,33 +102,31 @@ export const getRoles = async (that: any): Promise<INodePropertyOptions[]> => {
   }
 
   const rolesRequest = () =>
-    new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(''), 5000)
+    new Promise<INodePropertyOptions[]>((resolve) => {
+      const timeout = setTimeout(() => resolve([]), 5000)
 
       ipc.config.retry = 1500
       ipc.connectTo('bot', () => {
         ipc.of.bot.emit('list:roles')
 
-        ipc.of.bot.on('list:roles', (data: any) => {
+        ipc.of.bot.on('list:roles', (data: INodePropertyOptions[]) => {
           clearTimeout(timeout)
           resolve(data)
         })
       })
     })
 
-  const roles = await rolesRequest().catch((e) => e)
+  const roles = await rolesRequest().catch((e: Error) => e)
 
   let message = 'Unexpected error'
 
   if (roles) {
     if (Array.isArray(roles)) {
-      const filtered = roles.filter((r: any) => r.name !== '@everyone')
+      const filtered = roles.filter((r: INodePropertyOptions) => r.name !== '@everyone')
       if (filtered.length) return filtered
       else
-        message =
-          'Your Discord server has no roles, please add at least one if you want to restrict the trigger to specific users' +
-          endMessage
-    } else message = 'Something went wrong' + endMessage
+        message = `Your Discord server has no roles, please add at least one if you want to restrict the trigger to specific users ${endMessage}`
+    } else message = `Something went wrong ${endMessage}`
   }
 
   return [
@@ -182,7 +178,7 @@ export const triggerWorkflow = async (
       },
       { headers },
     )
-    .catch((e) => {
+    .catch((e: Error) => {
       console.log(e)
       if (state.triggers[webhookId] && !state.testMode) {
         state.triggers[webhookId].active = false
@@ -192,8 +188,7 @@ export const triggerWorkflow = async (
       }
     })
 
-  if (res) return true
-  return false
+  return !!res
 }
 
 export const addLog = (message: string, client: Client) => {
@@ -203,39 +198,44 @@ export const addLog = (message: string, client: Client) => {
   state.logs.push(log)
 
   if (state.ready && state.autoLogs) {
-    const channel = client.channels.cache.get(state.autoLogsChannelId) as any
-    if (channel) channel.send('**' + log + '**')
+    const channel = client.channels.cache.get(state.autoLogsChannelId) as TextChannel
+    if (channel) channel.send(`** ${log} **`)
   }
 }
 
-export const ipcRequest = (type: string, parameters: any): Promise<any> => {
+export const ipcRequest = (type: string, parameters: Record<string, unknown>): Promise<unknown> => {
   return new Promise((resolve) => {
     ipc.config.retry = 1500
     ipc.connectTo('bot', () => {
       ipc.of.bot.emit(type, parameters)
       if (parameters.botCustomization && parameters.botActivity) ipc.of.bot.emit('bot:status', parameters)
 
-      ipc.of.bot.on(type, (data: any) => {
+      ipc.of.bot.on(type, (data: unknown) => {
         resolve(data)
       })
     })
   })
 }
 
-export const pollingPromptData = (message: any, content: string, seconds: number, client: any): Promise<boolean> => {
+export const pollingPromptData = (
+  message: Message,
+  content: string,
+  seconds: number,
+  client: Client,
+): Promise<boolean> => {
   return new Promise((resolve) => {
     let i = 1
     const waiting = async () => {
       if (state.promptData[message.id]?.value || (seconds && i > seconds)) {
         if (!state.promptData[message.id]?.value) {
-          await message.edit({ content: content, components: [] }).catch((e: any) => e)
-          const channel = client.channels.cache.get(message.channelId) as any
-          if (channel) await channel.send('Timeout reached').catch((e: any) => e)
+          await message.edit({ content, components: [] }).catch((e: Error) => e)
+          const channel = client.channels.cache.get(message.channelId) as TextChannel
+          if (channel) await channel.send('Timeout reached').catch((e: Error) => e)
         }
         resolve(true)
         return
       } else if (seconds && !state.promptData[message.id]?.value) {
-        await message.edit({ content: content + ` (${seconds - i}s)` }).catch((e: any) => e)
+        await message.edit({ content: `${content} (${seconds - i}s)` }).catch((e: Error) => e)
       }
       i++
       setTimeout(() => waiting(), 1000)
@@ -253,7 +253,7 @@ export interface IExecutionData {
   userId?: string
 }
 
-export const execution = async (
+export const execution = (
   executionId: string,
   placeholderId: string,
   channelId: string,
@@ -262,7 +262,7 @@ export const execution = async (
   userId?: string,
 ): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject('timeout'), 15000)
+    const timeout = setTimeout(() => reject(new Error('timeout')), 15000)
     ipc.connectTo('bot', () => {
       ipc.of.bot.emit('execution', {
         executionId,
@@ -280,38 +280,46 @@ export const execution = async (
   })
 }
 
-export const placeholderLoading = async (placeholder: Message, placeholderMatchingId: string, txt: string) => {
-  state.placeholderMatching[placeholderMatchingId] = placeholder.id
-  state.placeholderWaiting[placeholderMatchingId] = true
-  let i = 0
-  const waiting = async () => {
-    i++
-    if (i > 3) i = 0
-    let content = txt + ''
-    for (let j = 0; j < i; j++) content += '.'
+export const placeholderLoading = (
+  placeholder: Message,
+  placeholderMatchingId: string,
+  txt: string,
+): Promise<string> => {
+  return new Promise((resolve) => {
+    state.placeholderMatching[placeholderMatchingId] = placeholder.id
+    state.placeholderWaiting[placeholderMatchingId] = true
+    let i = 0
+    const waiting = () => {
+      i++
+      if (i > 3) i = 0
+      let content = `${txt}`
+      for (let j = 0; j < i; j++) content += '.'
 
-    if (!state.placeholderMatching[placeholderMatchingId]) {
-      await placeholder.edit(txt).catch((e: any) => e)
-      delete state.placeholderWaiting[placeholderMatchingId]
-      return
-    }
-    await placeholder.edit(content).catch((e: any) => e)
-    setTimeout(async () => {
-      if (state.placeholderMatching[placeholderMatchingId]) waiting()
-      else {
-        await placeholder.edit(txt).catch((e: any) => e)
-        delete state.placeholderWaiting[placeholderMatchingId]
+      if (!state.placeholderMatching[placeholderMatchingId]) {
+        placeholder.edit(txt).catch((e: Error) => e)
+        state.placeholderWaiting[placeholderMatchingId] = false
+        resolve(txt)
+        return
       }
-    }, 800)
-  }
-  waiting()
+      placeholder.edit(content).catch((e: Error) => e)
+      setTimeout(() => {
+        if (state.placeholderMatching[placeholderMatchingId]) waiting()
+        else {
+          placeholder.edit(txt).catch((e: Error) => e)
+          state.placeholderWaiting[placeholderMatchingId] = false
+          resolve(txt)
+        }
+      }, 800)
+    }
+    waiting()
+  })
 }
 
 export function withTimeout<T>(promise: Promise<T>, ms: number) {
-  const timeout = new Promise((resolve, reject) => setTimeout(() => reject(`Timed out after ${ms} ms.`), ms))
+  const timeout = new Promise((resolve, reject) => setTimeout(() => reject(new Error(`Timed out after ${ms} ms.`)), ms))
   return Promise.race([promise, timeout])
 }
 
-export function generateUniqueId(length: number = 12): string {
+export function generateUniqueId(length = 12): string {
   return hexoid(length)()
 }

@@ -3,7 +3,7 @@ import { Client, TextChannel } from 'discord.js'
 import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default async function (client: Client) {
+export default function (client: Client) {
   client.on('threadCreate', async (thread) => {
     try {
       const threadOwner = await thread.fetchOwner()
@@ -43,9 +43,9 @@ export default async function (client: Client) {
               ).catch((e) => e)
               if (isEnabled && trigger.placeholder) {
                 const channel = client.channels.cache.get(thread.parentId ? thread.parentId : '')
-                const placeholder = await (channel as TextChannel)
-                  .send(trigger.placeholder)
-                  .catch((e: any) => addLog(`${e}`, client))
+                const placeholder = await (channel as TextChannel).send(trigger.placeholder).catch((e: Error) => {
+                  addLog(`${(e as Error).message}`, client)
+                })
                 if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
               }
             }

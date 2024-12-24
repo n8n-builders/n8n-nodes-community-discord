@@ -1,17 +1,18 @@
 import { Channel, Client, GuildMember, TextChannel, User } from 'discord.js'
+import { Socket } from 'net'
 import Ipc from 'node-ipc'
 
 import { IDiscordNodeActionParameters } from '../../Discord.node'
 import { addLog } from '../helpers'
 import state from '../state'
 
-export default async function (ipc: typeof Ipc, client: Client) {
-  ipc.server.on('send:action', async (nodeParameters: IDiscordNodeActionParameters, socket: any) => {
+export default function (ipc: typeof Ipc, client: Client) {
+  ipc.server.on('send:action', (nodeParameters: IDiscordNodeActionParameters, socket: Socket) => {
     try {
       if (state.ready) {
         const executionMatching = state.executionMatching[nodeParameters.executionId]
-        let channelId: string = ''
-        if (nodeParameters.triggerPlaceholder || nodeParameters.triggerChannel) channelId = executionMatching.channelId
+        let channelId = ''
+        if (nodeParameters.triggerPlaceholder || nodeParameters.triggerChannel) channelId = executionMatching?.channelId
         else channelId = nodeParameters.channelId
 
         if (!channelId && !nodeParameters.actionType) {
@@ -21,14 +22,14 @@ export default async function (ipc: typeof Ipc, client: Client) {
 
         client.channels
           .fetch(channelId)
-          .then(async (channel: Channel | null) => {
+          .then(async (channel: Channel | null): Promise<void> => {
             if (!channel || !channel.isTextBased()) return
 
             const performAction = async () => {
               if (nodeParameters.actionType === 'removeMessages') {
                 await (channel as TextChannel)
                   .bulkDelete(nodeParameters.removeMessagesNumber)
-                  .catch((e: any) => addLog(`${e}`, client))
+                  .catch((e: Error) => addLog(`${e}`, client))
               } else if (['addRole', 'removeRole'].includes(nodeParameters.actionType)) {
                 await client.users
                   .fetch(nodeParameters.userId as string)
@@ -42,35 +43,37 @@ export default async function (ipc: typeof Ipc, client: Client) {
                             ? nodeParameters.roleUpdateIds.split(',')
                             : nodeParameters.roleUpdateIds
                         ;(roleUpdateIds ?? []).forEach((roleId: string) => {
-                          if (!roles.cache.has(roleId) && nodeParameters.actionType === 'addRole') roles.add(roleId)
+                          if (!roles.cache.has(roleId) && nodeParameters.actionType === 'addRole')
+                            roles.add(roleId, nodeParameters.auditLogReason)
                           else if (roles.cache.has(roleId) && nodeParameters.actionType === 'removeRole')
-                            roles.remove(roleId)
+                            roles.remove(roleId, nodeParameters.auditLogReason)
                         })
                       })
-                      .catch((e: any) => addLog(`${e}`, client))
+                      .catch((e: Error) => addLog(`${e}`, client))
                   })
-                  .catch((e: any) => {
+                  .catch((e: Error) => {
                     addLog(`${e}`, client)
                   })
               }
             }
 
-            if (nodeParameters.triggerPlaceholder && executionMatching.placeholderId) {
+            if (nodeParameters.triggerPlaceholder && executionMatching?.placeholderId) {
               const realPlaceholderId = state.placeholderMatching[executionMatching.placeholderId]
               if (realPlaceholderId) {
-                const message = (await channel.messages.fetch(realPlaceholderId).catch((e: any) => {
+                const message = await channel.messages.fetch(realPlaceholderId).catch((e: Error) => {
                   addLog(`${e}`, client)
-                })) as any
-                delete state.placeholderMatching[executionMatching.placeholderId]
-                if (message && message.delete) {
-                  // delete message
-                  let t = 0
+                })
+                delete state.placeholderMatching[
+                  executionMatching.placeholderId as keyof typeof state.placeholderMatching
+                ]
+                if (message?.delete) {
+                  let retryCount = 0
                   const retry = async () => {
-                    if (state.placeholderWaiting[executionMatching.placeholderId] && t < 10) {
-                      t++
+                    if (state.placeholderWaiting[executionMatching.placeholderId] && retryCount < 10) {
+                      retryCount++
                       setTimeout(() => retry(), 300)
                     } else {
-                      await message.delete().catch((e: any) => {
+                      await message.delete().catch((e: Error) => {
                         addLog(`${e}`, client)
                       })
 
@@ -81,7 +84,7 @@ export default async function (ipc: typeof Ipc, client: Client) {
                       })
                     }
                   }
-                  retry()
+                  await retry()
                   return
                 }
               }
@@ -93,7 +96,7 @@ export default async function (ipc: typeof Ipc, client: Client) {
               action: nodeParameters.actionType,
             })
           })
-          .catch((e: any) => {
+          .catch((e: Error) => {
             addLog(`${e}`, client)
             ipc.server.emit(socket, 'send:action', false)
           })

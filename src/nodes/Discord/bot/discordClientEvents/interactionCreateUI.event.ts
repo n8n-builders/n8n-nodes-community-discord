@@ -1,10 +1,10 @@
-import { Client, ComponentType, GuildMemberRoleManager, TextChannel } from 'discord.js'
+import { Client, ComponentType, GuildMemberRoleManager, Message, TextChannel } from 'discord.js'
 
 import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default async function (client: Client) {
-  client.on('interactionCreate', (interaction) => {
+export default function (client: Client) {
+  client.on('interactionCreate', async (interaction) => {
     try {
       if (!interaction.isButton() && !interaction.isSelectMenu()) return
 
@@ -17,7 +17,7 @@ export default async function (client: Client) {
             if (trigger.roleIds?.length) {
               const hasRole = trigger.roleIds.some((role: string) => userRoles?.includes(role))
               if (!hasRole) {
-                interaction.reply({ content: `You are not allowed to do this`, ephemeral: true })
+                interaction.reply({ content: 'You are not allowed to do this', ephemeral: true })
                 return
               }
             }
@@ -62,7 +62,7 @@ export default async function (client: Client) {
               const channel = client.channels.cache.get(key)
               const placeholder = await (channel as TextChannel)
                 .send(trigger.placeholder)
-                .catch((e: any) => addLog(`${e}`, client))
+                .catch((e: Error) => addLog(e.message, client))
               if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
             }
           }
@@ -80,21 +80,21 @@ export default async function (client: Client) {
       if (promptData.restrictToRoles) {
         const hasRole = promptData.mentionRoles.some((role: string) => userRoles?.includes(role))
         if (!hasRole) {
-          interaction.reply({ content: `You are not allowed to do this`, ephemeral: true })
+          interaction.reply({ content: 'You are not allowed to do this', ephemeral: true })
           return
         }
       }
       const triggeringUserId = state.executionMatching[promptData.executionId]?.userId
       if (promptData.restrictToTriggeringUser && triggeringUserId && interaction.user.id !== triggeringUserId) {
-        interaction.reply({ content: `You are not allowed to do this`, ephemeral: true })
+        interaction.reply({ content: 'You are not allowed to do this', ephemeral: true })
         return
       }
 
       // no restriction or user authorized
       if (promptData && !promptData.value) {
         const bt = interaction.isButton()
-          ? promptData.buttons?.button.find((b: any) => b.value === interaction.customId)
-          : promptData.select?.select.find((b: any) => b.value === interaction.values[0])
+          ? promptData.buttons?.button.find((b: { value: string }) => b.value === interaction.customId)
+          : promptData.select?.select.find((b: { value: string }) => b.value === interaction.values[0])
         addLog(`User interact: ${bt.label}`, client)
         promptData.value = interaction.isButton() ? interaction.customId : interaction.values[0]
         promptData.userId = interaction.user.id
@@ -102,12 +102,19 @@ export default async function (client: Client) {
         promptData.userTag = interaction.user.tag
         promptData.channelId = interaction.message.channelId
         promptData.messageId = interaction.message.id
-        interaction.update({ components: [] }).catch((e: any) => e)
+        interaction.update({ components: [] }).catch((e: Error) => e)
         const channel = client.channels.cache.get(interaction.message.channelId)
-        ;(channel as TextChannel).send(`<@${interaction.user.id}>: ` + bt.label)
+        ;(channel as TextChannel).send(`<@${interaction.user.id}>: ${bt.label}`)
         setTimeout(async () => {
-          const message = await (channel as TextChannel).messages.fetch(interaction.message.id).catch((e: any) => e)
-          if (message) message.edit({ content: promptData.content, components: [] }).catch((e: any) => e)
+          const message = await (channel as TextChannel).messages.fetch(interaction.message.id).catch((e: Error) => e)
+          if (message instanceof Message) {
+            const msg = await (channel as TextChannel).messages.fetch(interaction.message.id).catch((e: Error) => e)
+            if (msg instanceof Message) {
+              msg.edit({ content: promptData.content, components: [] }).catch((e: Error) => e)
+            } else {
+              addLog(`Failed to fetch message: ${msg}`, client)
+            }
+          }
         }, 1000)
       }
     } catch (e) {

@@ -10,47 +10,54 @@ import {
   SelectMenuComponentOptionData,
   TextChannel,
 } from 'discord.js'
+import { Socket } from 'net'
 import Ipc from 'node-ipc'
 
 import { IDiscordNodePromptParameters } from '../../Discord.node'
 import { addLog, execution, placeholderLoading, pollingPromptData } from '../helpers'
 import state from '../state'
 
-export default async function (ipc: typeof Ipc, client: Client) {
-  ipc.server.on('send:prompt', async (nodeParameters: IDiscordNodePromptParameters, socket: any) => {
+export default function (ipc: typeof Ipc, client: Client) {
+  ipc.server.on('send:prompt', (nodeParameters: IDiscordNodePromptParameters, socket: Socket) => {
     try {
       if (state.ready) {
         const executionMatching = state.executionMatching[nodeParameters.executionId]
-        let channelId: string = ''
+        let channelId = ''
         if (nodeParameters.triggerPlaceholder || nodeParameters.triggerChannel) channelId = executionMatching?.channelId
         else channelId = nodeParameters.channelId
 
         client.channels
           .fetch(channelId)
-          .then(async (channel: Channel | null) => {
+          .then(async (channel: Channel | null): Promise<void> => {
             if (!channel || !channel.isTextBased()) return
 
             addLog(`send:prompt to ${channelId}`, client)
 
             const promptProcessing = async (message: Message) => {
               state.promptData[message.id] = nodeParameters
-              await pollingPromptData(message, nodeParameters.content, nodeParameters.timeout, client).catch((e: any) =>
-                addLog(`${e}`, client),
+              await pollingPromptData(message, nodeParameters.content, nodeParameters.timeout, client).catch(
+                (e: unknown) => addLog(`${e}`, client),
               )
               ipc.server.emit(socket, 'send:prompt', state.promptData[message.id])
-              delete state.promptData[message.id]
+              const messageId = message.id
+              if (messageId in state.promptData) {
+                Reflect.deleteProperty(state.promptData, messageId as keyof typeof state.promptData)
+              }
               if (nodeParameters.placeholder) {
-                const message = await (channel as TextChannel)
-                  .send({ content: nodeParameters.placeholder })
-                  .catch((e: any) => e)
+                const message = await (channel as TextChannel).send({ content: nodeParameters.placeholder })
+
                 await execution(
                   nodeParameters.executionId,
                   message.id,
                   channel.id,
-                  nodeParameters.apiKey,
+                  await placeholderLoading(
+                    message as Message,
+                    (message as Message).id.toString(),
+                    nodeParameters.placeholder,
+                  ),
                   nodeParameters.baseUrl,
                 ).catch((e) => e)
-                placeholderLoading(message, message.id, nodeParameters.placeholder)
+                await placeholderLoading(message as Message, message.id, nodeParameters.placeholder)
               }
             }
 
@@ -105,57 +112,64 @@ export default async function (ipc: typeof Ipc, client: Client) {
             if (nodeParameters.triggerPlaceholder && executionMatching?.placeholderId) {
               const realPlaceholderId = state.placeholderMatching[executionMatching.placeholderId]
               if (realPlaceholderId) {
-                const message = await channel.messages.fetch(realPlaceholderId).catch((e: any) => {
+                const message = await channel.messages.fetch(realPlaceholderId).catch((e: unknown) => {
                   addLog(`${e}`, client)
                 })
-                delete state.placeholderMatching[executionMatching.placeholderId]
-                if (message && message.edit) {
-                  let t = 0
+                delete state.placeholderMatching[
+                  executionMatching.placeholderId as keyof typeof state.placeholderMatching
+                ]
+                if (message?.edit) {
+                  let retryCount = 0
                   const retry = async () => {
-                    if (state.placeholderWaiting[executionMatching.placeholderId] && t < 10) {
-                      t++
+                    if (state.placeholderWaiting[executionMatching.placeholderId] && retryCount < 10) {
+                      retryCount++
                       setTimeout(() => retry(), 300)
                     } else {
-                      await message.edit(sendObject as MessageEditOptions).catch((e: any) => {
+                      await message.edit(sendObject as MessageEditOptions).catch((e: unknown) => {
                         addLog(`${e}`, client)
                       })
-                      promptProcessing(message)
+                      await promptProcessing(message)
                     }
                   }
-                  retry()
+                  await retry()
                   return
                 }
               }
             }
-            if (executionMatching?.placeholderId) delete state.placeholderMatching[executionMatching.placeholderId]
+            if (executionMatching?.placeholderId)
+              delete state.placeholderMatching[
+                executionMatching.placeholderId as keyof typeof state.placeholderMatching
+              ]
 
-            let message
+            let message: Message | undefined
 
             if (nodeParameters.updateMessageId) {
-              const messageToEdit = await channel.messages.fetch(nodeParameters.updateMessageId).catch((e: any) => {
+              const messageToEdit = await channel.messages.fetch(nodeParameters.updateMessageId).catch((e: unknown) => {
                 addLog(`${e}`, client)
               })
-              if (messageToEdit && messageToEdit.edit) {
-                message = await messageToEdit.edit(sendObject as MessageEditOptions).catch((e: any) => {
+              if (messageToEdit?.edit) {
+                message = (await messageToEdit.edit(sendObject as MessageEditOptions).catch((e: unknown) => {
                   addLog(`${e}`, client)
-                })
+                  return undefined
+                })) as Message<boolean> | undefined
               }
             } else {
-              message = await (channel as TextChannel).send(sendObject as MessageCreateOptions).catch((e: any) => {
+              message = (await (channel as TextChannel).send(sendObject as MessageCreateOptions).catch((e: unknown) => {
                 addLog(`${e}`, client)
-              })
+                return undefined
+              })) as Message<boolean> | undefined
             }
 
-            if (message && message.id && !nodeParameters.persistent) {
-              promptProcessing(message)
-            } else if (message && message.id && nodeParameters.persistent) {
+            if (message?.id && !nodeParameters.persistent) {
+              await promptProcessing(message)
+            } else if (message?.id && nodeParameters.persistent) {
               ipc.server.emit(socket, 'send:prompt', {
                 channelId: channel.id,
                 messageId: message.id,
               })
             }
           })
-          .catch((e: any) => {
+          .catch((e: unknown) => {
             addLog(`${e}`, client)
             ipc.server.emit(socket, 'send:prompt', false)
           })

@@ -1,25 +1,26 @@
 import { AttachmentBuilder, Channel, Client, ColorResolvable, EmbedBuilder, Message, TextChannel } from 'discord.js'
+import { Socket } from 'net'
 import Ipc from 'node-ipc'
 
 import { IDiscordNodeMessageParameters } from '../../Discord.node'
 import { addLog } from '../helpers'
 import state from '../state'
 
-export default async function (ipc: typeof Ipc, client: Client) {
-  ipc.server.on('send:message', async (nodeParameters: IDiscordNodeMessageParameters, socket: any) => {
+export default function (ipc: typeof Ipc, client: Client) {
+  ipc.server.on('send:message', (nodeParameters: IDiscordNodeMessageParameters, socket: Socket) => {
     try {
       if (state.ready) {
         const executionMatching = state.executionMatching[nodeParameters.executionId]
-        let channelId: string = ''
-        if (nodeParameters.triggerPlaceholder || nodeParameters.triggerChannel) channelId = executionMatching.channelId
+        let channelId = ''
+        if (nodeParameters.triggerPlaceholder || nodeParameters.triggerChannel) channelId = executionMatching?.channelId
         else channelId = nodeParameters.channelId
 
         client.channels
           .fetch(channelId)
-          .then(async (channel: Channel | null) => {
+          .then(async (channel: Channel | null): Promise<void> => {
             if (!channel || !channel.isTextBased()) return
 
-            const embedFiles = []
+            const embedFiles: AttachmentBuilder[] = []
 
             addLog(`send:message to ${channelId}`, client)
 
@@ -33,12 +34,11 @@ export default async function (ipc: typeof Ipc, client: Client) {
               if (nodeParameters.timestamp) embed.setTimestamp(Date.parse(nodeParameters.timestamp))
               if (nodeParameters.footerText) {
                 let iconURL = nodeParameters.footerIconUrl
-                if (iconURL && iconURL.match(/^data:/)) {
+                if (iconURL?.match(/^data:/)) {
                   const buffer = Buffer.from(iconURL.split(',')[1], 'base64')
                   const reg = new RegExp(/data:image\/([a-z]+);base64/gi)
                   const mime = reg.exec(nodeParameters.footerIconUrl) ?? []
                   const file = new AttachmentBuilder(buffer, { name: `footer.${mime[1]}` })
-                  // @ts-expect-error legacy declaration
                   embedFiles.push(file)
                   iconURL = `attachment://footer.${mime[1]}`
                 }
@@ -48,35 +48,32 @@ export default async function (ipc: typeof Ipc, client: Client) {
                 })
               }
               if (nodeParameters.imageUrl) {
-                if (nodeParameters.imageUrl.match(/^data:/)) {
+                if (/^data:/.test(nodeParameters.imageUrl)) {
                   const buffer = Buffer.from(nodeParameters.imageUrl.split(',')[1], 'base64')
                   const reg = new RegExp(/data:image\/([a-z]+);base64/gi)
                   const mime = reg.exec(nodeParameters.imageUrl) ?? []
                   const file = new AttachmentBuilder(buffer, { name: `image.${mime[1]}` })
-                  // @ts-expect-error legacy declaration
                   embedFiles.push(file)
                   embed.setImage(`attachment://image.${mime[1]}`)
                 } else embed.setImage(nodeParameters.imageUrl)
               }
               if (nodeParameters.thumbnailUrl) {
-                if (nodeParameters.thumbnailUrl.match(/^data:/)) {
+                if (/^data:/.test(nodeParameters.thumbnailUrl)) {
                   const buffer = Buffer.from(nodeParameters.thumbnailUrl.split(',')[1], 'base64')
                   const reg = new RegExp(/data:image\/([a-z]+);base64/gi)
                   const mime = reg.exec(nodeParameters.thumbnailUrl) ?? []
                   const file = new AttachmentBuilder(buffer, { name: `thumbnail.${mime[1]}` })
-                  // @ts-expect-error legacy declaration
                   embedFiles.push(file)
                   embed.setThumbnail(`attachment://thumbnail.${mime[1]}`)
                 } else embed.setThumbnail(nodeParameters.thumbnailUrl)
               }
               if (nodeParameters.authorName) {
                 let iconURL = nodeParameters.authorIconUrl
-                if (iconURL && iconURL.match(/^data:/)) {
+                if (iconURL?.match(/^data:/)) {
                   const buffer = Buffer.from(iconURL.split(',')[1], 'base64')
                   const reg = new RegExp(/data:image\/([a-z]+);base64/gi)
                   const mime = reg.exec(nodeParameters.authorIconUrl) ?? []
                   const file = new AttachmentBuilder(buffer, { name: `author.${mime[1]}` })
-                  // @ts-expect-error legacy declaration
                   embedFiles.push(file)
                   iconURL = `attachment://author.${mime[1]}`
                 }
@@ -108,11 +105,10 @@ export default async function (ipc: typeof Ipc, client: Client) {
             if (nodeParameters.content) content += nodeParameters.content
             if (mentions) content += mentions
 
-            // embedFiles
-            let files: any[] = []
+            let files: (AttachmentBuilder | string | Buffer)[] = []
             if (nodeParameters.files?.file) {
-              files = nodeParameters.files?.file.map((file: { url: string }) => {
-                if (file.url.match(/^data:/)) {
+              files = nodeParameters.files.file.map((file: { url: string }) => {
+                if (/^data:/.test(file.url)) {
                   return Buffer.from(file.url.split(',')[1], 'base64')
                 }
                 return file.url
@@ -126,21 +122,23 @@ export default async function (ipc: typeof Ipc, client: Client) {
               ...(files.length ? { files } : {}),
             }
 
-            if (nodeParameters.triggerPlaceholder && executionMatching.placeholderId) {
+            if (nodeParameters.triggerPlaceholder && executionMatching?.placeholderId) {
               const realPlaceholderId = state.placeholderMatching[executionMatching.placeholderId]
               if (realPlaceholderId) {
-                const message = await channel.messages.fetch(realPlaceholderId).catch((e: any) => {
+                const message = await channel.messages.fetch(realPlaceholderId).catch((e: Error) => {
                   addLog(`${e}`, client)
                 })
-                delete state.placeholderMatching[executionMatching.placeholderId]
-                if (message && message.edit) {
-                  let t = 0
+                delete state.placeholderMatching[
+                  executionMatching.placeholderId as keyof typeof state.placeholderMatching
+                ]
+                if (message?.edit) {
+                  let retryCount = 0
                   const retry = async () => {
-                    if (state.placeholderWaiting[executionMatching.placeholderId] && t < 10) {
-                      t++
+                    if (state.placeholderWaiting[executionMatching.placeholderId] && retryCount < 10) {
+                      retryCount++
                       setTimeout(() => retry(), 300)
                     } else {
-                      await message.edit(sendObject).catch((e: any) => {
+                      await message.edit(sendObject).catch((e: Error) => {
                         addLog(`${e}`, client)
                       })
                       ipc.server.emit(socket, 'send:message', {
@@ -149,17 +147,17 @@ export default async function (ipc: typeof Ipc, client: Client) {
                       })
                     }
                   }
-                  retry()
+                  await retry()
                   return
                 }
               }
             }
-            const message = (await (channel as TextChannel).send(sendObject).catch((e: any) => {
+            const message = (await (channel as TextChannel).send(sendObject).catch((e: Error) => {
               addLog(`${e}`, client)
             })) as Message
             ipc.server.emit(socket, 'send:message', { channelId, messageId: message.id })
           })
-          .catch((e: any) => {
+          .catch((e: Error) => {
             addLog(`${e}`, client)
             ipc.server.emit(socket, 'send:message', false)
           })

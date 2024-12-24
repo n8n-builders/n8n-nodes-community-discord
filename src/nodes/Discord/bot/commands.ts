@@ -88,13 +88,15 @@ export default async function (token: string, clientId: string, client: Client) 
       const command = commands[i].default
 
       // Execute the command
-      const reply = await command.executeCommand(options.get('input')?.value, interaction).catch((e: any) => e)
+      const reply = await command
+        .executeCommand(options.get('input')?.value, interaction)
+        .catch((e: Error) => e.message)
       const botReply = await interaction.reply({ content: reply, fetchReply: true }).catch((e) => e)
 
       // Handle auto-remove of messages based on command params or if the reply is "Done!"
       if (command.params?.autoRemove || reply === 'Done!') {
-        setTimeout(async () => {
-          botReply.delete().catch((e: any) => console.log(e))
+        setTimeout(() => {
+          botReply.delete().catch((e: Error) => console.log(e))
         }, 2000)
       }
     } catch (e) {

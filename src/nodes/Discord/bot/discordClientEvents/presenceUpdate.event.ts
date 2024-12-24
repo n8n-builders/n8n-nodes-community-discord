@@ -3,8 +3,8 @@ import { Client, TextChannel } from 'discord.js'
 import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default async function (client: Client) {
-  client.on('presenceUpdate', (oldPresence, newPresence) => {
+export default function (client: Client) {
+  client.on('presenceUpdate', async (oldPresence, newPresence) => {
     const member = newPresence.member
     try {
       if (!member || member.user.system) return
@@ -35,7 +35,7 @@ export default async function (client: Client) {
               const channel = client.channels.cache.get(key)
               const placeholder = await (channel as TextChannel)
                 .send(trigger.placeholder)
-                .catch((e: any) => addLog(`${e}`, client))
+                .catch((e: unknown) => addLog(`${(e as Error).message}`, client))
               if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
             }
           }

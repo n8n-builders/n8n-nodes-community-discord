@@ -1,12 +1,13 @@
 import axios from 'axios'
 import { Client } from 'discord.js'
+import { Socket } from 'net'
 import Ipc from 'node-ipc'
 
 import { addLog, IExecutionData } from '../helpers'
 import state from '../state'
 
-export default async function (ipc: typeof Ipc, client: Client) {
-  ipc.server.on('execution', async (data: IExecutionData, socket: any) => {
+export default function (ipc: typeof Ipc, client: Client) {
+  ipc.server.on('execution', (data: IExecutionData, socket: Socket) => {
     try {
       ipc.server.emit(socket, 'execution', true)
       if (data.executionId && data.channelId) {
@@ -16,26 +17,25 @@ export default async function (ipc: typeof Ipc, client: Client) {
         }
         if (data.placeholderId && data.apiKey && data.baseUrl) {
           state.executionMatching[data.executionId].placeholderId = data.placeholderId
-          const checkExecution = async (
-            placeholderId: string,
-            executionId: string,
-            apiKey: string,
-            baseUrl: string,
-          ) => {
+          const checkExecution = (placeholderId: string, executionId: string, apiKey: string, baseUrl: string) => {
             const headers = {
               accept: 'application/json',
               'X-N8N-API-KEY': apiKey,
             }
-            const res = await axios.get(`${data.baseUrl}/executions/${executionId}`, { headers }).catch((e) => e)
-            if (res && res.data && res.data.finished === false && res.data.stoppedAt === null) {
-              setTimeout(() => {
-                if (state.placeholderMatching[placeholderId])
-                  checkExecution(placeholderId, executionId, apiKey, baseUrl)
-              }, 3000)
-            } else {
-              delete state.placeholderMatching[placeholderId]
-              delete state.executionMatching[data.executionId]
-            }
+            axios
+              .get(`${data.baseUrl}/executions/${executionId}`, { headers })
+              .then((res) => {
+                if (res?.data?.finished === false && res.data.stoppedAt === null) {
+                  setTimeout(() => {
+                    if (state.placeholderMatching[placeholderId])
+                      checkExecution(placeholderId, executionId, apiKey, baseUrl)
+                  }, 3000)
+                } else {
+                  Reflect.deleteProperty(state.placeholderMatching, placeholderId)
+                  Reflect.deleteProperty(state.executionMatching, data.executionId)
+                }
+              })
+              .catch((e) => e)
           }
           checkExecution(data.placeholderId, data.executionId, data.apiKey, data.baseUrl)
         }

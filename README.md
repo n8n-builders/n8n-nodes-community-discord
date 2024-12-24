@@ -70,8 +70,10 @@ Now you will be able to use the **Discord Trigger** and **Discord Send** nodes o
 - **Listen to**: Let you select the text channels you want to listen to for triggering the workflow. If none are selected, all channels will be listened to. Your credentials must be set and the bot running, you also need at least one text channel available. If you do not meet these requirements, make the changes then close and reopen the modal (the channels list is loaded when the modal opens). For "User" trigger types, if you want to use a placeholder, select the channel where you want it displayed.
 - **From roles**: The same logic apply here for roles, except it is optional. If you don't select any role it will listen to **@everyone**.
 - **Trigger type**: Type of event to listen to. User events must specify a channel to listen to if you want to use a placeholder or the option "send to the trigger channel" in a Discord Send node.
-  - **Message**: Listen to messages sent in the selected channels.
-  - **Thread**: Listen to threads created in the selected channels.
+  - **New Message**: Listen to messages sent in the selected channels.
+  - **Message update**: Listen to messages updated in the selected channels.
+  - **New Thread**: Listen to threads created in the selected channels.
+  - **Thread update**: Listen to threads updated in the selected channels.
   - **Command**: Listen to commands sent in the selected channels.
   - **Interaction**: Listen to persisted button/select.
   - **User joins**: Listen to users joining the server.
@@ -181,7 +183,7 @@ Now you will be able to use the **Discord Trigger** and **Discord Send** nodes o
       - **Remove role from user**: Remove a role from a user.
         - **User ID**: User to remove the role from.
         - **Which roles**: Roles to remove from the user.
-
+      - For actions that support it, you can optionally provide a reason why the action was taken via the `X-Audit-Log-Reason` header.
 - **Persistent**: Available for type prompt. If active the button/select will stay visible even when the workflow is done.
   - **Min select**: Available for type select prompt. Minimum number of options that can be selected.
   - **Max select**: Available for type select prompt. Maximum number of options that can be selected.

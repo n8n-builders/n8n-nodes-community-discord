@@ -1,5 +1,10 @@
 # Changelog
 
+## Released (2024-11-17 0.7.3)
+### New Features
+- Trigger: Message update
+- Trigger: Thread update
+
 ## Released (2024-11-17 0.7.2)
 
 ### Improvements/refactoring

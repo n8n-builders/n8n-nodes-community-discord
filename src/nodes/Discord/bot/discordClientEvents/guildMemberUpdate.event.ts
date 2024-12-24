@@ -3,7 +3,7 @@ import { Client, TextChannel } from 'discord.js'
 import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default async function (client: Client) {
+export default function (client: Client) {
   client.on('guildMemberUpdate', (oldMember, member) => {
     try {
       if (!member || member.user.system) return
@@ -55,7 +55,7 @@ export default async function (client: Client) {
                 const channel = client.channels.cache.get(key)
                 const placeholder = await (channel as TextChannel)
                   .send(trigger.placeholder)
-                  .catch((e: any) => addLog(`${e}`, client))
+                  .catch((e: Error) => addLog(`${e.message}`, client))
                 if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
               }
             }
@@ -84,7 +84,7 @@ export default async function (client: Client) {
                 const channel = client.channels.cache.get(key)
                 const placeholder = await (channel as TextChannel)
                   .send(trigger.placeholder)
-                  .catch((e: any) => addLog(`${e}`, client))
+                  .catch((e: Error) => addLog(`${e}`, client))
                 if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
               }
             }

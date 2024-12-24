@@ -72,8 +72,8 @@ export default function () {
   // so it's not stopped when a node execution end
   // we use ipc to communicate between the node execution process and the bot
   // ipc is serving in the main process & childs connect to it using the ipc client
-  ipc.serve(function () {
-    addLog(`ipc bot server started`, client)
+  ipc.serve(() => {
+    addLog('ipc bot server started', client)
     credentialsIpc(ipc, client)
 
     // when a trigger is activated or updated, we get the trigger data et parse it
