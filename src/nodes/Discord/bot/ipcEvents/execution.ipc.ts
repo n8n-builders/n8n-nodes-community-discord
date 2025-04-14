@@ -59,8 +59,8 @@ export default function (ipc: typeof Ipc, client: Client): void {
                   executionTimeouts.set(executionId, timeout)
                 } else {
                   // Clean up when execution completes
-                  delete state.placeholderMatching[placeholderId]
-                  delete state.executionMatching[data.executionId]
+                  Reflect.deleteProperty(state.placeholderMatching, placeholderId)
+                  Reflect.deleteProperty(state.executionMatching, data.executionId)
 
                   // Ensure any pending timeout is cleared
                   if (executionTimeouts.has(executionId)) {
@@ -73,8 +73,8 @@ export default function (ipc: typeof Ipc, client: Client): void {
                 addLog(`Execution check error: ${error instanceof Error ? error.message : String(error)}`, client)
 
                 // Clean up on error to prevent memory leaks
-                delete state.placeholderMatching[placeholderId]
-                delete state.executionMatching[data.executionId]
+                Reflect.deleteProperty(state.placeholderMatching, placeholderId)
+                Reflect.deleteProperty(state.executionMatching, data.executionId)
               })
           }
 

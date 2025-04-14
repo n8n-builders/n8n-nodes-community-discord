@@ -13,7 +13,7 @@ export default {
     return new SlashCommandBuilder()
       .setName(name)
       .setDescription('Toggle test mode')
-      .setDMPermission(false)
+      .setContexts([0])
       .addBooleanOption((option: SlashCommandBooleanOption) =>
         option.setName('input').setDescription('Specify if test mode is enabled or not').setRequired(false),
       )

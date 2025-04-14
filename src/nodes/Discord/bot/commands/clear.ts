@@ -1,5 +1,4 @@
-import { SlashCommandBuilder, SlashCommandIntegerOption } from 'discord.js'
-import { Interaction, TextChannel } from 'discord.js'
+import { Interaction, SlashCommandBuilder, SlashCommandIntegerOption, TextChannel } from 'discord.js'
 
 const name = 'clear'
 
@@ -12,7 +11,7 @@ export default {
     return new SlashCommandBuilder()
       .setName(name)
       .setDescription('Delete messages')
-      .setDMPermission(false)
+      .setContexts([0])
       .addIntegerOption((option: SlashCommandIntegerOption) =>
         option.setName('input').setDescription('Number of last messages to delete').setRequired(false),
       )

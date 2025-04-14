@@ -63,9 +63,9 @@ export default function (ipc: typeof Ipc, client: Client) {
                 const message = await channel.messages.fetch(realPlaceholderId).catch((e: Error) => {
                   addLog(`${e}`, client)
                 })
-                delete state.placeholderMatching[
-                  executionMatching.placeholderId as keyof typeof state.placeholderMatching
-                ]
+                if (executionMatching.placeholderId) {
+                  Reflect.deleteProperty(state.placeholderMatching, executionMatching.placeholderId)
+                }
                 if (message?.delete) {
                   let retryCount = 0
                   const retry = async () => {

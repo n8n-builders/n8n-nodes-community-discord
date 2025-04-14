@@ -1,5 +1,4 @@
-import { SlashCommandBuilder, SlashCommandStringOption } from 'discord.js'
-import { ChannelType, Interaction } from 'discord.js'
+import { ChannelType, Interaction, SlashCommandBuilder, SlashCommandStringOption } from 'discord.js'
 
 import state from '../state'
 
@@ -14,7 +13,7 @@ export default {
     return new SlashCommandBuilder()
       .setName(name)
       .setDescription('Toggle test mode')
-      .setDMPermission(false)
+      .setContexts([0])
       .addStringOption((option: SlashCommandStringOption) =>
         option
           .setName('input')
