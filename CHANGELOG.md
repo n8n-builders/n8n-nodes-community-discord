@@ -1,5 +1,37 @@
 # Changelog
 
+## Released (2025-04-13 0.7.4)
+
+### New Features
+- Added support for Discord.js v14.18.0
+- Added compatibility with Node.js v23.10.0
+- Added message timeout handling with improved notifications
+- Enhanced trigger workflow functionality to support more event types
+- Enhanced pattern matching in message triggers 
+
+### Improvements/refactoring
+- Improved TypeScript type safety by removing 'any' type usages
+- Enhanced Collection implementation with discord.js Collections
+- Updated dependencies to remove deprecated methods
+- Fixed object injection vulnerabilities
+- Improved ESLint and Prettier compliance
+- Improved type safety in Discord client event handlers
+- Optimized channel state management for triggers
+- Better handling of trigger workflows with improved active state management
+- Added better handling of bot mentions in message triggers
+- Improved workflow trigger activation status tracking
+- Improved error handling in message update events
+- Better state management for channel triggers
+- Enhanced logging for workflow trigger failures
+
+### Bug fixes
+- Fixed message update trigger handling for proper channel detection
+- Enhanced error logging in event handlers
+- Improved error handling in workflow triggers
+- Enhanced error logging for webhook triggers
+
+## Previous Versions
+
 ## Released (2024-11-17 0.7.3)
 ### New Features
 - Trigger: Message update
