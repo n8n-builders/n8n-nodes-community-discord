@@ -8,3 +8,7 @@ name = "javascript"
     "nodejs",
     "jest"
   ]
+
+[[transformers]]  
+name = "prettier"  
+enabled = true

@@ -10,7 +10,8 @@ export const options: INodeProperties[] = [
       loadOptionsMethod: 'getChannels',
     },
     default: [],
-    description: `Let you select the text channels you want to listen to for triggering the workflow. If none selected, all channels will be listen to. Your credentials must be set and the bot running, you also need at least one text channel available. If you do not meet these requirements, make the changes then close and reopen the modal (the channels list is loaded when the modal opens).`,
+    description:
+      'Let you select the text channels you want to listen to for triggering the workflow. If none selected, all channels will be listen to. Your credentials must be set and the bot running, you also need at least one text channel available. If you do not meet these requirements, make the changes then close and reopen the modal (the channels list is loaded when the modal opens).',
   },
   {
     displayName: 'From roles',
@@ -36,7 +37,8 @@ export const options: INodeProperties[] = [
       loadOptionsMethod: 'getRoles',
     },
     default: [],
-    description: `The same logic apply here for roles, except it is optional. If you don't select any role it will listen to @everyone.`,
+    description:
+      "The same logic apply here for roles, except it is optional. If you don't select any role it will listen to @everyone.",
   },
   {
     displayName: 'Trigger type',
@@ -45,14 +47,24 @@ export const options: INodeProperties[] = [
     type: 'options',
     options: [
       {
-        name: 'Message',
+        name: 'New Message',
         value: 'message',
         description: 'When a message is sent in the selected channels.',
       },
       {
-        name: 'Thread',
+        name: 'Message Update',
+        value: 'message_update',
+        description: 'When a message is updated in the selected channels.',
+      },
+      {
+        name: 'New Thread',
         value: 'thread',
         description: 'When a thread is created in the selected channels.',
+      },
+      {
+        name: 'Thread Update',
+        value: 'message_update',
+        description: 'When a thread is updated in the selected channels.',
       },
       {
         name: 'Command',
@@ -96,7 +108,8 @@ export const options: INodeProperties[] = [
       },
     ],
     default: 'message',
-    description: `Type of event to listen to. User events must specify a channel to listen to if you want to use a placeholder or the option "send to the trigger channel" in a Discord Send node.`,
+    description:
+      'Type of event to listen to. User events must specify a channel to listen to if you want to use a placeholder or the option "send to the trigger channel" in a Discord Send node.',
   },
   {
     displayName: 'Which roles',
@@ -112,7 +125,7 @@ export const options: INodeProperties[] = [
       loadOptionsMethod: 'getRoles',
     },
     default: [],
-    description: `If you don't select any role it will listen to @everyone.`,
+    description: "If you don't select any role it will listen to @everyone.",
   },
   {
     displayName: 'Presence',
@@ -152,7 +165,7 @@ export const options: INodeProperties[] = [
       },
     ],
     default: 'any',
-    description: `Type of presence change to listen to.`,
+    description: 'Type of presence change to listen to.',
   },
   {
     displayName: 'Pattern',
@@ -192,7 +205,8 @@ export const options: INodeProperties[] = [
       },
     ],
     default: 'start',
-    description: `Select how the value below will be recognized. ⚠ Keep in mind that the value will be tested with all mentions removed and a trim applied (whitespaces removed at the beginning and at the end). For example "@bot hello" will be tested on "hello"`,
+    description:
+      'Select how the value below will be recognized. ⚠ Keep in mind that the value will be tested with all mentions removed and a trim applied (whitespaces removed at the beginning and at the end). For example "@bot hello" will be tested on "hello"',
   },
   {
     displayName: 'Value',
@@ -218,7 +232,8 @@ export const options: INodeProperties[] = [
     },
     required: true,
     default: '',
-    description: `The name of the command you want to listen to (use only alphanumeric characters). If the command don't show up in Discord, check if the trigger is active and restart your Discord client.`,
+    description:
+      "The name of the command you want to listen to (use only alphanumeric characters). If the command don't show up in Discord, check if the trigger is active and restart your Discord client.",
   },
   {
     displayName: 'Description',
@@ -231,7 +246,7 @@ export const options: INodeProperties[] = [
     },
     required: true,
     default: '',
-    description: `The description of the command you want to listen to.`,
+    description: 'The description of the command you want to listen to.',
   },
   {
     displayName: 'Input field type',
@@ -271,7 +286,7 @@ export const options: INodeProperties[] = [
       },
     ],
     default: 'none',
-    description: `The type of the input field.`,
+    description: 'The type of the input field.',
   },
   {
     displayName: 'Input field description',
@@ -285,7 +300,7 @@ export const options: INodeProperties[] = [
     },
     required: true,
     default: '',
-    description: `The description of the input field.`,
+    description: 'The description of the input field.',
   },
   {
     displayName: 'Input field required',
@@ -299,7 +314,7 @@ export const options: INodeProperties[] = [
     },
     required: false,
     default: false,
-    description: `If the input field is required or not.`,
+    description: 'If the input field is required or not.',
   },
   {
     displayName: 'Case Sensitive',
@@ -325,7 +340,8 @@ export const options: INodeProperties[] = [
     },
     required: false,
     default: false,
-    description: `If true, a message will also need to mention the bot to trigger the workflow (this does not exclude the other criteria).`,
+    description:
+      'If true, a message will also need to mention the bot to trigger the workflow (this does not exclude the other criteria).',
   },
   {
     displayName: 'Message ID',
@@ -338,7 +354,7 @@ export const options: INodeProperties[] = [
     },
     required: true,
     default: '',
-    description: `The message ID of the button/select to listen to.`,
+    description: 'The message ID of the button/select to listen to.',
   },
   {
     displayName: 'Placeholder',
@@ -346,6 +362,7 @@ export const options: INodeProperties[] = [
     type: 'string',
     required: false,
     default: '',
-    description: `The placeholder is a message that will appear in the channel that triggers the workflow. Three animated dots added to the placeholder indicate that the workflow is running. From a Discord Send node, you can set up a response message which will then take the place of this placeholder.`,
+    description:
+      'The placeholder is a message that will appear in the channel that triggers the workflow. Three animated dots added to the placeholder indicate that the workflow is running. From a Discord Send node, you can set up a response message which will then take the place of this placeholder.',
   },
 ]

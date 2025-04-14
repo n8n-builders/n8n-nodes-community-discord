@@ -2,6 +2,7 @@ import {
   ICredentialsDecrypted,
   ICredentialTestFunctions,
   IExecuteFunctions,
+  ILoadOptionsFunctions,
   INodeCredentialTestResult,
   INodeExecutionData,
   INodePropertyOptions,
@@ -123,6 +124,7 @@ export interface IDiscordNodeActionParameters {
   removeMessagesNumber: number
   userId?: string
   roleUpdateIds?: string[] | string
+  auditLogReason: string
 }
 
 export class Discord implements INodeType {
@@ -130,11 +132,17 @@ export class Discord implements INodeType {
 
   methods = {
     loadOptions: {
-      async getChannels(): Promise<INodePropertyOptions[]> {
-        return await getChannelsHelper(this).catch((e) => e)
+      async getChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+        const credentials = (await this.getCredentials('discordApi')) as ICredentials
+        return await getChannelsHelper(credentials).catch((e) => {
+          throw new NodeOperationError(this.getNode(), e)
+        })
       },
-      async getRoles(): Promise<INodePropertyOptions[]> {
-        return await getRolesHelper(this).catch((e) => e)
+      async getRoles(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+        const credentials = (await this.getCredentials('discordApi')) as ICredentials
+        return await getRolesHelper(credentials).catch((e) => {
+          throw new NodeOperationError(this.getNode(), e)
+        })
       },
     },
     credentialTest: {
@@ -147,27 +155,30 @@ export class Discord implements INodeType {
     const returnData: INodeExecutionData[] = []
 
     // connection
-    const credentials = (await this.getCredentials('discordApi').catch((e) => e)) as any as ICredentials
+    const credentials = (await this.getCredentials('discordApi').catch((e) => {
+      throw new NodeOperationError(this.getNode(), e)
+    })) as unknown as ICredentials
     await connection(credentials).catch((e) => {
       throw new NodeOperationError(this.getNode(), e)
     })
 
     // execution
     const items: INodeExecutionData[] = this.getInputData()
-    for (let itemIndex: number = 0; itemIndex < items.length; itemIndex++) {
-      const nodeParameters: any = {}
+    for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      const nodeParameters: Record<string, string | number | boolean | object> = {}
       Object.keys(this.getNode().parameters).forEach((key) => {
-        nodeParameters[key] = this.getNodeParameter(key, itemIndex, '') as any
+        nodeParameters[key] = this.getNodeParameter(key, itemIndex, '') as string | number | boolean | object
       })
       nodeParameters.executionId = executionId
       nodeParameters.apiKey = credentials.apiKey
       nodeParameters.baseUrl = credentials.baseUrl
+      nodeParameters.auditLogReason = this.getNodeParameter('auditLogReason', itemIndex, '') as string
 
       if (nodeParameters.channelId || nodeParameters.executionId) {
         // return the interaction result if there is one
         const res = await ipcRequest(
           `send:${
-            ['select', 'button'].includes(nodeParameters.type)
+            ['select', 'button'].includes(nodeParameters.type as string)
               ? 'prompt'
               : nodeParameters.type === 'none'
                 ? 'action'
@@ -175,39 +186,54 @@ export class Discord implements INodeType {
           }`,
           nodeParameters,
         ).catch((e) => {
-          if (this.continueOnFail()) {
-            items.push({ json: this.getInputData(itemIndex)[0].json, e, pairedItem: itemIndex })
-          } else {
-            // Adding `itemIndex` allows other workflows to handle this error
-            if (e.context) {
-              // If the error thrown already contains the context property,
-              // only append the itemIndex
-              e.context.itemIndex = itemIndex
-              throw e
-            }
-            throw new NodeOperationError(this.getNode(), e, {
-              itemIndex,
-            })
-          }
+          handleExecutionError.call(this, e, itemIndex, returnData)
         })
 
-        returnData.push({
-          json: {
-            value: res?.value,
-            channelId: res?.channelId,
-            userId: res?.userId,
-            userName: res?.userName,
-            userTag: res?.userTag,
-            messageId: res?.messageId,
-            action: res?.action,
-          }, // todo: add triggeringUser if executed following a discord trigger
-        })
+        if (res) {
+          returnData.push(createReturnData(res))
+        }
       }
 
       if (nodeParameters.placeholder) await new Promise((resolve) => setTimeout(resolve, 1000))
     }
 
     return this.prepareOutputData(returnData)
+  }
+}
+
+function handleExecutionError(this: IExecuteFunctions, e: Error, itemIndex: number, returnData: INodeExecutionData[]) {
+  if (this.continueOnFail()) {
+    returnData.push({
+      json: this.getInputData(itemIndex)[0].json,
+      error: new NodeOperationError(this.getNode(), e),
+      pairedItem: itemIndex,
+    })
+  } else {
+    throw new NodeOperationError(this.getNode(), e, {
+      itemIndex,
+    })
+  }
+}
+
+function createReturnData(res: {
+  value?: string
+  channelId?: string
+  userId?: string
+  userName?: string
+  userTag?: string
+  messageId?: string
+  action?: string
+}): INodeExecutionData {
+  return {
+    json: {
+      value: res?.value,
+      channelId: res?.channelId,
+      userId: res?.userId,
+      userName: res?.userName,
+      userTag: res?.userTag,
+      messageId: res?.messageId,
+      action: res?.action,
+    },
   }
 }
 

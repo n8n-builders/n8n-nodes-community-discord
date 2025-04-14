@@ -1,52 +1,51 @@
 import { Client } from 'discord.js'
+import { Socket } from 'net'
 import Ipc from 'node-ipc'
 
-import commands from '../commands'
-import { addLog, ICredentials, withTimeout } from '../helpers'
+import commandsHandle from '../commands'
+import { addLog, ICredentials } from '../helpers'
 import state from '../state'
 
-export default async function (ipc: typeof Ipc, client: Client) {
-  ipc.server.on('credentials', (data: ICredentials, socket: any) => {
+export default function (ipc: typeof Ipc, client: Client): void {
+  ipc.server.on('credentials', (data: ICredentials, socket: Socket) => {
     try {
       addLog(`credentials state login ${state.login}, ready ${state.ready}`, client)
+
       if (
         (!state.login && !state.ready) ||
         (state.ready && (state.clientId !== data.clientId || state.token !== data.token))
       ) {
-        if (data.token && data.clientId) {
-          addLog(`credentials login authenticating`, client)
+        if (!data.token || !data.clientId) ipc.server.emit(socket, 'credentials', 'missing')
+        else {
           state.login = true
-          commands(data.token, data.clientId, client).catch((e) => {
-            addLog(`${e}`, client)
-          })
-          withTimeout(client.login(data.token), 3000)
+          ipc.server.emit(socket, 'credentials', 'login')
+          client
+            .login(data.token)
             .then(() => {
+              addLog('logged !', client)
               state.ready = true
               state.login = false
               state.clientId = data.clientId
               state.token = data.token
+              commandsHandle(data.token, data.clientId, client)
               ipc.server.emit(socket, 'credentials', 'ready')
-              addLog(`credentials ready`, client)
             })
-            .catch((e) => {
+            .catch((e: Error) => {
               state.login = false
+              addLog(`Login error: ${e.message}`, client)
               ipc.server.emit(socket, 'credentials', 'error')
-              addLog(`credentials error - ${e}`, client)
             })
-        } else {
-          ipc.server.emit(socket, 'credentials', 'missing')
-          addLog(`credentials missing`, client)
         }
       } else if (state.login) {
-        ipc.server.emit(socket, 'credentials', 'login')
-        addLog(`credentials login`, client)
+        ipc.server.emit(socket, 'credentials', 'different')
       } else {
+        addLog(`already logged in, ready: ${state.ready}`, client)
         ipc.server.emit(socket, 'credentials', 'already')
       }
     } catch (e) {
       state.login = false
+      addLog(`Error: ${e instanceof Error ? e.message : String(e)}`, client)
       ipc.server.emit(socket, 'credentials', 'error')
-      addLog(`credentials error - ${e}`, client)
     }
   })
 }

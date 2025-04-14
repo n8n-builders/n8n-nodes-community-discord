@@ -1,56 +1,55 @@
-import { Client, TextChannel } from 'discord.js'
+import { Client, Message } from 'discord.js'
 
-import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
+import { addLog, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default async function (client: Client) {
-  client.on('messageCreate', async (message) => {
+export default function (client: Client): void {
+  client.on('messageCreate', async (message: Message) => {
     try {
-      if (message.author.system) return
-      const userRoles = message.member?.roles.cache.map((role) => role.id)
-      const clientId = client.user?.id
-      const botMention = message.mentions.users.some((user) => user.id === clientId)
-      message.content = message.content.replace(/<@!?\d+>/g, '').trim()
+      const content = message.content
+      if (!content || message.author.bot) return
+
+      const botMention = message.mentions.has(client.user?.id || '')
 
       if (state.channels[message.channelId] || state.channels.all) {
         ;[...(state.channels[message.channelId] ?? []), ...(state.channels.all ?? [])].forEach(async (trigger) => {
-          if (trigger.type === 'message') {
+          if (trigger.type === 'message' && (trigger.pattern?.length || trigger.value?.length || trigger.botMention)) {
             if (trigger.roleIds?.length) {
-              const hasRole = trigger.roleIds.some((role) => userRoles?.includes(role))
+              const hasRole = trigger.roleIds.some((role) =>
+                message.member?.roles.cache.map((r) => r.id).includes(role),
+              )
               if (!hasRole) return
             }
+
             if (trigger.botMention && !botMention) return
-            const escapedTriggerValue = (trigger.value ?? '')
-              .replace(/[|\\{}()[\]^$+*?.]/g, '\\$&')
-              .replace(/-/g, '\\x2d')
-            let regStr = `^${escapedTriggerValue}$`
-            if (trigger.pattern === 'start') regStr = `^${escapedTriggerValue}`
-            else if (trigger.pattern === 'end') regStr = `${escapedTriggerValue}$`
-            else if (trigger.pattern === 'contain') regStr = `${escapedTriggerValue}`
-            else if (trigger.pattern === 'regex') regStr = `${trigger.value}`
-            const reg = new RegExp(regStr, trigger.caseSensitive ? '' : 'i')
-            if (reg.test(message.content)) {
+
+            let match = false
+            if ((trigger.pattern?.length && trigger.type === 'message') || trigger.value?.length) {
+              const regStr = trigger.pattern?.length ? trigger.pattern : `^${trigger.value}$`
+              const reg = new RegExp(regStr, trigger.caseSensitive ? '' : 'i')
+              match = reg.test(content)
+            } else if (botMention) {
+              match = true
+            }
+
+            if (match) {
               addLog(`triggerWorkflow ${trigger.webhookId}`, client)
-              const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
-              const isEnabled = await triggerWorkflow(
-                trigger.webhookId,
-                message,
-                placeholderMatchingId,
-                state.baseUrl,
-              ).catch((e) => e)
-              if (isEnabled && trigger.placeholder) {
-                const channel = client.channels.cache.get(message.channelId)
-                const placeholder = await (channel as TextChannel)
-                  .send(trigger.placeholder)
-                  .catch((e: any) => addLog(`${e}`, client))
-                if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
+              const isEnabled = await triggerWorkflow(trigger.webhookId, message, '', state.baseUrl).catch(
+                (e: Error) => {
+                  addLog(`Error triggering workflow: ${e.message}`, client)
+                  return false
+                },
+              )
+
+              if (!isEnabled && trigger.active) {
+                trigger.active = false
               }
             }
           }
         })
       }
     } catch (e) {
-      addLog(`${e}`, client)
+      addLog(`Error in messageCreate: ${e instanceof Error ? e.message : String(e)}`, client)
     }
   })
 }

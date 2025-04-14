@@ -3,6 +3,7 @@ import {
   ICredentialsDecrypted,
   ICredentialTestFunctions,
   IExecuteFunctions,
+  ILoadOptionsFunctions,
   INodeCredentialTestResult,
   INodeExecutionData,
   INodePropertyOptions,
@@ -13,6 +14,7 @@ import {
   IWebhookResponseData,
   JsonObject,
   NodeConnectionType,
+  NodeOperationError,
 } from 'n8n-workflow'
 import ipc from 'node-ipc'
 
@@ -68,11 +70,17 @@ export class DiscordTrigger implements INodeType {
       discordApiTest,
     },
     loadOptions: {
-      async getChannels(): Promise<INodePropertyOptions[]> {
-        return await getChannelsHelper(this).catch((e) => e)
+      async getChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+        const credentials = (await this.getCredentials('discordApi')) as ICredentials
+        return await getChannelsHelper(credentials).catch((e) => {
+          throw new NodeOperationError(this.getNode(), e)
+        })
       },
-      async getRoles(): Promise<INodePropertyOptions[]> {
-        return await getRolesHelper(this).catch((e) => e)
+      async getRoles(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+        const credentials = (await this.getCredentials('discordApi')) as ICredentials
+        return await getRolesHelper(credentials).catch((e) => {
+          throw new NodeOperationError(this.getNode(), e)
+        })
       },
     },
   }
@@ -81,7 +89,7 @@ export class DiscordTrigger implements INodeType {
     const req = this.getRequestObject()
 
     return {
-      workflowData: [this.helpers.returnJsonArray(req.body)],
+      workflowData: [await this.helpers.returnJsonArray(req.body)],
     }
   }
 
@@ -90,8 +98,12 @@ export class DiscordTrigger implements INodeType {
     if (activationMode !== 'manual') {
       let baseUrl = ''
 
-      const credentials = (await this.getCredentials('discordApi').catch((e) => e)) as any as ICredentials
-      await connection(credentials).catch((e) => e)
+      const credentials = (await this.getCredentials('discordApi').catch((e) => {
+        throw new NodeOperationError(this.getNode(), e)
+      })) as unknown as ICredentials
+      await connection(credentials).catch((e) => {
+        throw new NodeOperationError(this.getNode(), e)
+      })
 
       try {
         const regex = /^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^/\n?]+)/gim
@@ -106,9 +118,9 @@ export class DiscordTrigger implements INodeType {
       ipc.connectTo('bot', () => {
         const { webhookId } = this.getNode()
 
-        const parameters: any = {}
+        const parameters: Record<string, string | number | boolean | object> = {}
         Object.keys(this.getNode().parameters).forEach((key) => {
-          parameters[key] = this.getNodeParameter(key, '') as any
+          parameters[key] = this.getNodeParameter(key, '') as string | number | boolean | object
         })
 
         ipc.of.bot.emit('trigger', {
@@ -126,7 +138,9 @@ export class DiscordTrigger implements INodeType {
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
     const executionId = this.getExecutionId()
     const input = this.getInputData()
-    const credentials = (await this.getCredentials('discordApi')) as any as ICredentials
+    const credentials = (await this.getCredentials('discordApi').catch((e) => {
+      throw new NodeOperationError(this.getNode(), e)
+    })) as unknown as ICredentials
     const placeholderId = input[0].json?.placeholderId as string
     const channelId = input[0].json?.channelId as string
     const userId = input[0].json?.userId as string
@@ -143,8 +157,8 @@ export class DiscordTrigger implements INodeType {
     const userRoles = input[0].json?.userRoles as string[]
     const attachments = input[0].json?.attachments as Attachment[]
 
-    await execution(executionId, placeholderId, channelId, credentials.apiKey, credentials.baseUrl, userId).catch(
-      (e) => e,
+    await execution(executionId, placeholderId, channelId, credentials.apiKey, credentials.baseUrl, userId).catch((e) =>
+      handleExecutionError.call(this, e, 0, []),
     )
     const returnData: INodeExecutionData[] = []
     returnData.push({
@@ -166,6 +180,20 @@ export class DiscordTrigger implements INodeType {
       },
     })
     return this.prepareOutputData(returnData)
+  }
+}
+
+function handleExecutionError(this: IExecuteFunctions, e: Error, itemIndex: number, returnData: INodeExecutionData[]) {
+  if (this.continueOnFail()) {
+    returnData.push({
+      json: this.getInputData(itemIndex)[0].json,
+      error: new NodeOperationError(this.getNode(), e),
+      pairedItem: itemIndex,
+    })
+  } else {
+    throw new NodeOperationError(this.getNode(), e, {
+      itemIndex,
+    })
   }
 }
 

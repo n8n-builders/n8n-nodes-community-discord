@@ -4,8 +4,14 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "target": "es2019",
-    "lib": ["es2019", "es2020", "es2022.error"],
-    "types": ["node"],
+    "lib": [
+      "es2019",
+      "es2020",
+      "es2022.error"
+    ],
+    "types": [
+      "node"
+    ],
     "removeComments": true,
     "useUnknownInCatchVariables": false,
     "forceConsistentCasingInFileNames": true,
@@ -23,5 +29,11 @@
     "rootDir": "./src/",
     "outDir": "./dist/"
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
+  "_meta": {
+    "packageJson": "./package.json"
+  },
+  "$schema": "https://json.schemastore.org/tsconfig"
 }

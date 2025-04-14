@@ -13,7 +13,8 @@ export const options: INodeProperties[] = [
       },
     },
     default: false,
-    description: `If active, the message produced by this node will replace the previous placeholder set. It can be a placeholder set by the Discord Trigger node or by another Discord Send node.`,
+    description:
+      'If active, the message produced by this node will replace the previous placeholder set. It can be a placeholder set by the Discord Trigger node or by another Discord Send node.',
   },
   {
     displayName: 'Send to the trigger channel',
@@ -30,7 +31,8 @@ export const options: INodeProperties[] = [
       },
     },
     default: false,
-    description: `If active, the message produced will be sent to the same channel were the workflow was triggered (but not replace the placeholder if there is one).`,
+    description:
+      'If active, the message produced will be sent to the same channel were the workflow was triggered (but not replace the placeholder if there is one).',
   },
   {
     displayName: 'Send to',
@@ -48,7 +50,8 @@ export const options: INodeProperties[] = [
       },
     },
     default: '',
-    description: `Let you specify the text channels where you want to send the message. Your credentials must be set and the bot running, you also need at least one text channel available. If you do not meet these requirements, make the changes then close and reopen the modal (the channels list is loaded when the modal opens).`,
+    description:
+      'Let you specify the text channels where you want to send the message. Your credentials must be set and the bot running, you also need at least one text channel available. If you do not meet these requirements, make the changes then close and reopen the modal (the channels list is loaded when the modal opens).',
   },
   {
     displayName: 'Type',
@@ -147,7 +150,7 @@ export const options: INodeProperties[] = [
       loadOptionsMethod: 'getRoles',
     },
     default: [],
-    description: `Let you specify the roles you want to add or remove from the user.`,
+    description: 'Let you specify the roles you want to add or remove from the user.',
   },
   {
     displayName: 'How many?',
@@ -538,7 +541,7 @@ export const options: INodeProperties[] = [
     },
     required: false,
     default: '',
-    description: `The ID of the message to update. If not set the message will be send as new.`,
+    description: 'The ID of the message to update. If not set the message will be send as new.',
   },
   {
     displayName: 'Footer text',
@@ -598,7 +601,8 @@ export const options: INodeProperties[] = [
       },
     },
     default: 0,
-    description: `Time (seconds) your workflow will wait until it passes to the next node (or stops the execution). The time left will be displayed and updated at the end of the text message. If the timeout is equal 0, it will wait indefinitely.`,
+    description:
+      'Time (seconds) your workflow will wait until it passes to the next node (or stops the execution). The time left will be displayed and updated at the end of the text message. If the timeout is equal 0, it will wait indefinitely.',
   },
   {
     displayName: 'Restrict to triggering user',
@@ -682,7 +686,8 @@ export const options: INodeProperties[] = [
       },
     },
     default: [],
-    description: `Let you specify roles you want to mention in the message. Your credentials must be set and the bot running, you also need at least one role (apart from @everyone) available. If you do not meet these requirements, make the changes then close and reopen the modal.`,
+    description:
+      'Let you specify roles you want to mention in the message. Your credentials must be set and the bot running, you also need at least one role (apart from @everyone) available. If you do not meet these requirements, make the changes then close and reopen the modal.',
   },
   {
     displayName: 'Placeholder',
@@ -789,5 +794,12 @@ export const options: INodeProperties[] = [
     ],
     default: 'online',
     description: 'Let you customize the status of the bot (if a bot activity is also set).',
+  },
+  {
+    displayName: 'Audit Log Reason',
+    name: 'auditLogReason',
+    type: 'string',
+    default: '',
+    description: 'Reason for the action to be logged in the audit log',
   },
 ]

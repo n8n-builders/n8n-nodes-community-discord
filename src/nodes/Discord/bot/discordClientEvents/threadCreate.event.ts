@@ -1,59 +1,61 @@
-import { Client, TextChannel } from 'discord.js'
+import { Client, ThreadChannel } from 'discord.js'
 
-import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
+import { addLog, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default async function (client: Client) {
-  client.on('threadCreate', async (thread) => {
+export default function (client: Client): void {
+  client.on('threadCreate', async (thread: ThreadChannel) => {
     try {
-      const threadOwner = await thread.fetchOwner()
-      const threadStarter = await thread.fetchStarterMessage()
-      const userRoles = threadOwner?.guildMember?.roles.cache.map((role) => role.id)
-      const clientId = client.user?.id
-      const botMention = threadStarter?.mentions.users.some((user) => user.id === clientId)
-      if (threadStarter) {
-        threadStarter.content = threadStarter.content.replace(/<@!?\d+>/g, '').trim()
-      }
+      const content = thread.name
+      if (!content) return
 
-      if (state.channels[thread.parentId ?? ''] || state.channels.all) {
-        ;[...(state.channels[thread.parentId ?? ''] ?? []), ...(state.channels.all ?? [])].forEach(async (trigger) => {
-          if (trigger.type === 'thread') {
+      const botMention = false // Thread creation doesn't have mentions
+
+      if (state.channels[thread.parentId || ''] || state.channels.all) {
+        ;[...(state.channels[thread.parentId || ''] ?? []), ...(state.channels.all ?? [])].forEach(async (trigger) => {
+          if (
+            trigger.type === 'thread_create' &&
+            (trigger.pattern?.length || trigger.value?.length || trigger.botMention)
+          ) {
             if (trigger.roleIds?.length) {
-              const hasRole = trigger.roleIds.some((role) => userRoles?.includes(role))
-              if (!hasRole) return
+              // Skip role checking for thread creation as we don't have member info
+              return
             }
+
             if (trigger.botMention && !botMention) return
-            const escapedTriggerValue = (trigger.value ?? '')
-              .replace(/[|\\{}()[\]^$+*?.]/g, '\\$&')
-              .replace(/-/g, '\\x2d')
-            let regStr = `^${escapedTriggerValue}$`
-            if (trigger.pattern === 'start') regStr = `^${escapedTriggerValue}`
-            else if (trigger.pattern === 'end') regStr = `${escapedTriggerValue}$`
-            else if (trigger.pattern === 'contain') regStr = `${escapedTriggerValue}`
-            else if (trigger.pattern === 'regex') regStr = `${trigger.value}`
-            const reg = new RegExp(regStr, trigger.caseSensitive ? '' : 'i')
-            if (reg.test(threadStarter?.content ?? '')) {
+
+            let match = false
+            if ((trigger.pattern?.length && trigger.type === 'thread_create') || trigger.value?.length) {
+              const regStr = trigger.pattern?.length ? trigger.pattern : `^${trigger.value}$`
+              const reg = new RegExp(regStr, trigger.caseSensitive ? '' : 'i')
+              match = reg.test(content)
+            } else if (botMention) {
+              match = true
+            }
+
+            if (match) {
               addLog(`triggerWorkflow ${trigger.webhookId}`, client)
-              const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
               const isEnabled = await triggerWorkflow(
                 trigger.webhookId,
-                threadStarter,
-                placeholderMatchingId,
+                null,
+                '',
                 state.baseUrl,
-              ).catch((e) => e)
-              if (isEnabled && trigger.placeholder) {
-                const channel = client.channels.cache.get(thread.parentId ? thread.parentId : '')
-                const placeholder = await (channel as TextChannel)
-                  .send(trigger.placeholder)
-                  .catch((e: any) => addLog(`${e}`, client))
-                if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
+                undefined,
+                thread.id,
+              ).catch((e: Error) => {
+                addLog(`Error triggering workflow: ${e.message}`, client)
+                return false
+              })
+
+              if (!isEnabled && trigger.active) {
+                trigger.active = false
               }
             }
           }
         })
       }
     } catch (e) {
-      addLog(`${e}`, client)
+      addLog(`Error in threadCreate: ${e instanceof Error ? e.message : String(e)}`, client)
     }
   })
 }

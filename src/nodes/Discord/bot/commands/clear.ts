@@ -1,5 +1,4 @@
-import { SlashCommandBuilder, SlashCommandIntegerOption } from '@discordjs/builders'
-import { Interaction, TextChannel } from 'discord.js'
+import { Interaction, SlashCommandBuilder, SlashCommandIntegerOption, TextChannel } from 'discord.js'
 
 const name = 'clear'
 
@@ -12,7 +11,7 @@ export default {
     return new SlashCommandBuilder()
       .setName(name)
       .setDescription('Delete messages')
-      .setDMPermission(false)
+      .setContexts([0])
       .addIntegerOption((option: SlashCommandIntegerOption) =>
         option.setName('input').setDescription('Number of last messages to delete').setRequired(false),
       )
@@ -21,7 +20,7 @@ export default {
   executeCommand: async (param: number, interaction: Interaction): Promise<string> => {
     const channel = interaction.channel
     const nb = param > 0 && param <= 100 ? param : 100
-    await (channel as TextChannel).bulkDelete(nb).catch((e: any) => console.log(e))
+    await (channel as TextChannel).bulkDelete(nb).catch((e: Error) => console.log(e))
     return 'Done!'
   },
 }
