@@ -1,17 +1,17 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { includeIgnoreFile } from '@eslint/compat';
-import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin';
-import typescriptEslintParser from '@typescript-eslint/parser';
-import simpleImportSortPlugin from 'eslint-plugin-simple-import-sort';
-import prettierPlugin from 'eslint-plugin-prettier';
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { includeIgnoreFile } from '@eslint/compat'
+import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin'
+import typescriptEslintParser from '@typescript-eslint/parser'
+import simpleImportSortPlugin from 'eslint-plugin-simple-import-sort'
+import prettierPlugin from 'eslint-plugin-prettier'
 // skipcq: JS-W1028
-import eslintConfigPrettier from 'eslint-config-prettier/flat';
-import n8nNodesBasePlugin from 'eslint-plugin-n8n-nodes-base';
+import eslintConfigPrettier from 'eslint-config-prettier/flat'
+import n8nNodesBasePlugin from 'eslint-plugin-n8n-nodes-base'
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const gitignorePath = path.resolve(__dirname, '.gitignore');
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const gitignorePath = path.resolve(__dirname, '.gitignore')
 
 export default [
   includeIgnoreFile(gitignorePath),
@@ -60,7 +60,7 @@ export default [
     plugins: {
       '@typescript-eslint': typescriptEslintPlugin,
       'simple-import-sort': simpleImportSortPlugin,
-      'prettier': prettierPlugin,
+      prettier: prettierPlugin,
       'n8n-nodes-base': n8nNodesBasePlugin,
     },
     rules: {
@@ -79,7 +79,7 @@ export default [
       '@typescript-eslint/explicit-function-return-type': 'off',
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
-      'semi': ['error', 'never'], // Enforce no semicolons
+      semi: ['error', 'never'], // Enforce no semicolons
       '@typescript-eslint/no-explicit-any': 'off', // Ensure this rule is disabled last
     },
   },
@@ -117,4 +117,4 @@ export default [
     },
   },
   eslintConfigPrettier,
-];
+]

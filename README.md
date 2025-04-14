@@ -184,6 +184,7 @@ Now you will be able to use the **Discord Trigger** and **Discord Send** nodes o
         - **User ID**: User to remove the role from.
         - **Which roles**: Roles to remove from the user.
       - For actions that support it, you can optionally provide a reason why the action was taken via the `X-Audit-Log-Reason` header.
+
 - **Persistent**: Available for type prompt. If active the button/select will stay visible even when the workflow is done.
   - **Min select**: Available for type select prompt. Minimum number of options that can be selected.
   - **Max select**: Available for type select prompt. Maximum number of options that can be selected.
