@@ -1,9 +1,9 @@
-import { Client, TextChannel } from 'discord.js'
+import { Client, GuildMember, TextChannel } from 'discord.js'
 
 import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default function (client: Client) {
+export default function (client: Client): void {
   client.on('guildMemberUpdate', (oldMember, member) => {
     try {
       if (!member || member.user.system) return
@@ -17,82 +17,132 @@ export default function (client: Client) {
       const nickChanged = previousNick !== currentNick
 
       if (addedRoles.length || removedRoles.length) {
-        Object.keys(state.channels).forEach((key) => {
-          const channel = state.channels[key]
-          channel.forEach(async (trigger) => {
-            if (trigger.roleIds?.length) {
-              const hasRole = trigger.roleIds.some((role) => previousUserRoles?.includes(role))
-              if (!hasRole) return
-            }
-            if (
-              (addedRoles.length && trigger.type === 'userRoleAdded') ||
-              (removedRoles.length && trigger.type === 'userRoleRemoved')
-            ) {
-              if (trigger.type === 'userRoleAdded' && trigger.roleUpdateIds.length) {
-                const hasRole = trigger.roleUpdateIds.some((role) => addedRoles?.includes(role))
-                if (!hasRole) return
-              }
-              if (trigger.type === 'userRoleRemoved' && trigger.roleUpdateIds.length) {
-                const hasRole = trigger.roleUpdateIds.some((role) => removedRoles?.includes(role))
-                if (!hasRole) return
-              }
-
-              addLog(`triggerWorkflow ${trigger.webhookId}`, client)
-              const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
-              const isEnabled = await triggerWorkflow(
-                trigger.webhookId,
-                null,
-                placeholderMatchingId,
-                state.baseUrl,
-                member.user,
-                key,
-                undefined,
-                undefined,
-                addedRoles,
-                removedRoles,
-              ).catch((e) => e)
-              if (isEnabled && trigger.placeholder) {
-                const channel = client.channels.cache.get(key)
-                const placeholder = await (channel as TextChannel)
-                  .send(trigger.placeholder)
-                  .catch((e: Error) => addLog(`${e.message}`, client))
-                if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
-              }
-            }
-          })
-        })
+        // Process role changes
+        processRoleChanges(client, previousUserRoles, addedRoles, removedRoles, member).catch((error: Error) =>
+          addLog(`Error processing role changes: ${error.message}`, client),
+        )
       }
 
       if (nickChanged) {
-        Object.keys(state.channels).forEach((key) => {
-          const channel = state.channels[key]
-          channel.forEach(async (trigger) => {
-            if (trigger.type === 'userNickUpdated') {
-              addLog(`triggerWorkflow ${trigger.webhookId}`, client)
-              const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
-              const isEnabled = await triggerWorkflow(
-                trigger.webhookId,
-                null,
-                placeholderMatchingId,
-                state.baseUrl,
-                member.user,
-                key,
-                undefined,
-                currentNick,
-              ).catch((e) => e)
-              if (isEnabled && trigger.placeholder) {
-                const channel = client.channels.cache.get(key)
-                const placeholder = await (channel as TextChannel)
-                  .send(trigger.placeholder)
-                  .catch((e: Error) => addLog(`${e}`, client))
-                if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
-              }
-            }
-          })
-        })
+        // Process nickname changes
+        processNicknameChange(client, currentNick, member).catch((error: Error) =>
+          addLog(`Error processing nickname change: ${error.message}`, client),
+        )
       }
-    } catch (e) {
-      addLog(`${e}`, client)
+    } catch (error) {
+      addLog(`Error in guildMemberUpdate: ${error instanceof Error ? error.message : String(error)}`, client)
     }
   })
+}
+
+/**
+ * Process role changes for a guild member
+ */
+async function processRoleChanges(
+  client: Client,
+  previousUserRoles: string[],
+  addedRoles: string[],
+  removedRoles: string[],
+  member: GuildMember,
+): Promise<void> {
+  for (const [key, channel] of Object.entries(state.channels)) {
+    for (const trigger of channel) {
+      if (trigger.roleIds?.length) {
+        const hasRole = trigger.roleIds.some((role) => previousUserRoles?.includes(role))
+        if (!hasRole) continue
+      }
+
+      if (
+        (addedRoles.length && trigger.type === 'userRoleAdded') ||
+        (removedRoles.length && trigger.type === 'userRoleRemoved')
+      ) {
+        if (trigger.type === 'userRoleAdded' && trigger.roleUpdateIds.length) {
+          const hasRole = trigger.roleUpdateIds.some((role) => addedRoles?.includes(role))
+          if (!hasRole) continue
+        }
+
+        if (trigger.type === 'userRoleRemoved' && trigger.roleUpdateIds.length) {
+          const hasRole = trigger.roleUpdateIds.some((role) => removedRoles?.includes(role))
+          if (!hasRole) continue
+        }
+
+        addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+        const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
+
+        const isEnabled = await triggerWorkflow(
+          trigger.webhookId,
+          null,
+          placeholderMatchingId,
+          state.baseUrl,
+          member.user,
+          key,
+          undefined,
+          undefined,
+          addedRoles,
+          removedRoles,
+        ).catch((error: Error) => {
+          addLog(`triggerWorkflow error: ${error.message}`, client)
+          return false
+        })
+
+        if (isEnabled && trigger.placeholder) {
+          await createPlaceholderMessage(client, key, trigger.placeholder, placeholderMatchingId)
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Process nickname change for a guild member
+ */
+async function processNicknameChange(client: Client, currentNick: string, member: GuildMember): Promise<void> {
+  for (const [key, channel] of Object.entries(state.channels)) {
+    for (const trigger of channel) {
+      if (trigger.type === 'userNickUpdated') {
+        addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+        const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
+
+        const isEnabled = await triggerWorkflow(
+          trigger.webhookId,
+          null,
+          placeholderMatchingId,
+          state.baseUrl,
+          member.user,
+          key,
+          undefined,
+          currentNick,
+        ).catch((error: Error) => {
+          addLog(`triggerWorkflow error: ${error.message}`, client)
+          return false
+        })
+
+        if (isEnabled && trigger.placeholder) {
+          await createPlaceholderMessage(client, key, trigger.placeholder, placeholderMatchingId)
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Create a placeholder message in the specified channel
+ */
+async function createPlaceholderMessage(
+  client: Client,
+  channelId: string,
+  placeholderText: string,
+  placeholderMatchingId: string,
+): Promise<void> {
+  const channel = client.channels.cache.get(channelId)
+  if (!channel?.isTextBased()) return
+
+  try {
+    const placeholder = await (channel as TextChannel).send(placeholderText)
+    if (placeholder) {
+      await placeholderLoading(placeholder, placeholderMatchingId, placeholderText)
+    }
+  } catch (error) {
+    addLog(`Failed to create placeholder: ${error instanceof Error ? error.message : String(error)}`, client)
+  }
 }

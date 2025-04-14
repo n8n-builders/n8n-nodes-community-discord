@@ -1,4 +1,4 @@
-import { SlashCommandBooleanOption, SlashCommandBuilder } from '@discordjs/builders'
+import { SlashCommandBooleanOption, SlashCommandBuilder } from 'discord.js'
 
 import state from '../state'
 

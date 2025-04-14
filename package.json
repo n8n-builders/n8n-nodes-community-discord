@@ -17,10 +17,13 @@
     "url": "https://github.com/kmcbride3"
   },
   "repository": {
-    "type": "git", 
+    "type": "git",
     "url": "git+https://github.com/kmcbride3/n8n-nodes-discord.git"
   },
   "main": "index.js",
+  "engines": {
+    "node": ">=16.9.0"
+  },
   "scripts": {
     "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
@@ -44,40 +47,39 @@
   },
   "pnpm": {
     "overrides": {
-      "eslint": "^9.15.0",
       "event-pubsub": "npm:@node-ipc/event-pubsub@^6.0.2",
-      "@typescript-eslint/utils": "^8.14.0"
+      "@typescript-eslint/utils": "^8.29.1",
+      "axios": "^1.8.4"
     },
     "peerDependencyRules": {
       "allowedVersions": {
         "eslint": "^9.15.0",
         "event-pubsub": "npm:@node-ipc/event-pubsub@^6.0.2",
-        "@typescript-eslint/utils": "^8.14.0"
+        "@typescript-eslint/utils": "^8.29.1"
       }
     }
   },
   "devDependencies": {
-    "@eslint/compat": "^1.2.3",
-    "@types/node": "^22.10.1",
+    "@eslint/compat": "^1.2.8",
+    "@types/discord.js": "^14.18.0",
+    "@types/node": "^22.14.1",
     "@types/node-ipc": "^9.2.3",
-    "eslint": "^9.16.0",
-    "eslint-config-prettier": "^9.1.0",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",
-    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "gulp": "^5.0.0",
-    "n8n-core": "^1.70.0",
-    "n8n-workflow": "^1.69.0",
-    "prettier": "^3.4.1",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.16.0"
+    "n8n-core": "^1.87.0",
+    "n8n-workflow": "^1.82.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.29.1"
   },
   "dependencies": {
-    "@discordjs/builders": "^1.9.0",
-    "@discordjs/rest": "^2.4.0",
-    "axios": "^1.7.8",
-    "discord.js": "^14.16.3",
+    "axios": "^1.8.4",
+    "discord.js": "^14.18.0",
     "hexoid": "^2.0.0",
     "node-ipc": "^12.0.0"
   },

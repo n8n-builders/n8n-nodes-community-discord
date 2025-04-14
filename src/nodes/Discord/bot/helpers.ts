@@ -188,7 +188,7 @@ export const triggerWorkflow = async (
       }
     })
 
-  return !!res
+  return Boolean(res)
 }
 
 export const addLog = (message: string, client: Client) => {
@@ -224,23 +224,57 @@ export const pollingPromptData = (
   client: Client,
 ): Promise<boolean> => {
   return new Promise((resolve) => {
-    let i = 1
-    const waiting = async () => {
-      if (state.promptData[message.id]?.value || (seconds && i > seconds)) {
-        if (!state.promptData[message.id]?.value) {
-          await message.edit({ content, components: [] }).catch((e: Error) => e)
-          const channel = client.channels.cache.get(message.channelId) as TextChannel
-          if (channel) await channel.send('Timeout reached').catch((e: Error) => e)
-        }
+    let remainingTime = seconds
+    let timeoutId: NodeJS.Timeout | null = null
+
+    // Use a single timeout reference that can be cleared
+    const checkPromptData = () => {
+      // Check if response has been received
+      if (state.promptData[message.id]?.value) {
         resolve(true)
         return
-      } else if (seconds && !state.promptData[message.id]?.value) {
-        await message.edit({ content: `${content} (${seconds - i}s)` }).catch((e: Error) => e)
       }
-      i++
-      setTimeout(() => waiting(), 1000)
+
+      // Check for timeout expiry
+      if (seconds && remainingTime <= 0) {
+        // Update message to show timeout
+        message
+          .edit({ content, components: [] })
+          .catch((error: Error) => addLog(`Failed to update timeout message: ${error.message}`, client))
+
+        // Send timeout notification
+        const channel = client.channels.cache.get(message.channelId)
+        if (channel?.isTextBased()) {
+          ;(channel as TextChannel)
+            .send('Timeout reached')
+            .catch((error: Error) => addLog(`Failed to send timeout message: ${error.message}`, client))
+        }
+
+        resolve(true)
+        return
+      }
+
+      // Update timer in message if needed
+      if (seconds) {
+        remainingTime--
+        message
+          .edit({ content: `${content} (${remainingTime}s)` })
+          .catch((error: Error) => addLog(`Failed to update timer: ${error.message}`, client))
+      }
+
+      // Schedule the next check
+      timeoutId = setTimeout(checkPromptData, 1000)
     }
-    waiting()
+
+    // Start the polling
+    timeoutId = setTimeout(checkPromptData, 1000)
+
+    // Clean up event listeners when done
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
   })
 }
 

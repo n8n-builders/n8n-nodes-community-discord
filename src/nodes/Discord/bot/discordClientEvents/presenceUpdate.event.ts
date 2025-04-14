@@ -1,48 +1,49 @@
-import { Client, TextChannel } from 'discord.js'
+import { Client } from 'discord.js'
 
-import { addLog, generateUniqueId, placeholderLoading, triggerWorkflow } from '../helpers'
+import { addLog, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default function (client: Client) {
-  client.on('presenceUpdate', async (oldPresence, newPresence) => {
-    const member = newPresence.member
+export default function (client: Client): void {
+  client.on('presenceUpdate', (_, newPresence) => {
     try {
-      if (!member || member.user.system) return
-      const userRoles = member.roles.cache.map((role) => role.id)
-      Object.keys(state.channels).forEach((key) => {
-        const channel = state.channels[key]
-        channel.forEach(async (trigger) => {
-          if (trigger.roleIds?.length) {
-            const hasRole = trigger.roleIds.some((role) => userRoles?.includes(role))
+      if (!newPresence || !newPresence.status || !newPresence.userId || !newPresence.guild) return
+
+      if (state.channels[newPresence.guild.id] || state.channels.all) {
+        ;[...(state.channels[newPresence.guild.id] ?? []), ...(state.channels.all ?? [])].forEach(async (trigger) => {
+          if (!trigger.roleIds?.length) return
+
+          if (trigger.type === 'presence') {
+            const userRoles = newPresence.member?.roles.cache.map((r) => r.id)
+            if (!userRoles) return
+
+            const hasRole = trigger.roleIds.some((role) => userRoles.includes(role))
             if (!hasRole) return
-          }
-          if (
-            trigger.type === 'userPresenceUpdate' &&
-            (trigger.presence === newPresence.status || trigger.presence === 'any')
-          ) {
-            addLog(`triggerWorkflow ${trigger.webhookId}`, client)
-            const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
-            const isEnabled = await triggerWorkflow(
-              trigger.webhookId,
-              null,
-              placeholderMatchingId,
-              state.baseUrl,
-              member.user,
-              key,
-              newPresence.status,
-            ).catch((e) => e)
-            if (isEnabled && trigger.placeholder) {
-              const channel = client.channels.cache.get(key)
-              const placeholder = await (channel as TextChannel)
-                .send(trigger.placeholder)
-                .catch((e: unknown) => addLog(`${(e as Error).message}`, client))
-              if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
+
+            // Check if we need to trigger based on specific presence or 'any' presence
+            if (trigger.presence === newPresence.status || trigger.presence === 'any') {
+              addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+              const isEnabled = await triggerWorkflow(
+                trigger.webhookId,
+                null,
+                '',
+                state.baseUrl,
+                newPresence.user ?? undefined,
+                newPresence.guild?.id ?? '',
+                newPresence.status,
+              ).catch((e: Error) => {
+                addLog(`Error triggering workflow: ${e.message}`, client)
+                return false
+              })
+
+              if (!isEnabled && trigger.active) {
+                trigger.active = false
+              }
             }
           }
         })
-      })
+      }
     } catch (e) {
-      addLog(`${e}`, client)
+      addLog(`Error in presenceUpdate: ${e instanceof Error ? e.message : String(e)}`, client)
     }
   })
 }

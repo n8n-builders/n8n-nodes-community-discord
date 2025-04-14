@@ -1,35 +1,25 @@
-import { Client, ThreadChannel } from 'discord.js'
+import { Client } from 'discord.js'
 
-import { addLog } from '../helpers'
+import { addLog, triggerWorkflow } from '../helpers'
 import state from '../state'
 
-export default function (client: Client) {
-  client.on('threadUpdate', (oldThread: ThreadChannel, newThread: ThreadChannel) => {
+export default function (client: Client): void {
+  client.on('threadUpdate', (oldThread, newThread) => {
     try {
-      if (!newThread.guild) return
+      if (Object.keys(state.channels).length > 0) {
+        const matchedTriggers = Object.values(state.channels).flatMap((triggers) =>
+          triggers.filter((trigger) => trigger.type === 'thread_update' && trigger.channelIds?.includes(newThread.id)),
+        )
 
-      const triggers = Object.values(state.triggers).filter(
-        (trigger) => trigger.type === 'thread_update' && trigger.channelIds.includes(newThread.id),
-      )
+        matchedTriggers.forEach(async (trigger) => {
+          addLog(`triggerWorkflow ${trigger.webhookId}`, client)
 
-      for (const trigger of triggers) {
-        const executionId = `${newThread.id}-${Date.now()}`
-        state.executionMatching[executionId] = {
-          channelId: newThread.id,
-          placeholderId: trigger.placeholder,
-        }
-
-        const data = {
-          executionId,
-          channelId: newThread.id,
-          threadId: newThread.id,
-          threadName: newThread.name,
-          threadArchived: newThread.archived,
-          threadLocked: newThread.locked,
-        }
-
-        // Emit the event to the IPC server
-        client.emit('trigger', data)
+          await triggerWorkflow(trigger.webhookId, null, '', state.baseUrl, undefined, newThread.id).catch(
+            (e: Error) => {
+              addLog(`Error triggering workflow: ${e.message}`, client)
+            },
+          )
+        })
       }
     } catch (e) {
       addLog(`${e}`, client)

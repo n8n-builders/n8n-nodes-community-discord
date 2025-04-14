@@ -5,6 +5,8 @@ import typescriptEslintPlugin from '@typescript-eslint/eslint-plugin';
 import typescriptEslintParser from '@typescript-eslint/parser';
 import simpleImportSortPlugin from 'eslint-plugin-simple-import-sort';
 import prettierPlugin from 'eslint-plugin-prettier';
+// skipcq: JS-W1028
+import eslintConfigPrettier from 'eslint-config-prettier/flat';
 import n8nNodesBasePlugin from 'eslint-plugin-n8n-nodes-base';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -114,4 +116,5 @@ export default [
       'n8n-nodes-base/node-param-fixed-collection-type-unsorted-items': 'off',
     },
   },
+  eslintConfigPrettier,
 ];

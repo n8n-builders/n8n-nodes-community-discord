@@ -1,9 +1,9 @@
-import { REST } from '@discordjs/rest'
 import {
   Client,
   GuildMember,
   Interaction,
   PermissionResolvable,
+  REST,
   RESTPostAPIApplicationCommandsJSONBody,
   Routes,
 } from 'discord.js'
@@ -35,33 +35,21 @@ imports.forEach((commandName) => {
 export const registerCommands = async (
   token: string,
   clientId: string,
-  triggerCommands?: RESTPostAPIApplicationCommandsJSONBody[],
-) => {
-  console.log('Registering commands')
-
-  // Wait for all commands to be imported
-  const commands = await Promise.all(awaitingCommands).catch((e) => e)
-
-  // Create a new REST instance with the bot token
+  commands: RESTPostAPIApplicationCommandsJSONBody[] = [],
+): Promise<void> => {
   const rest = new REST({ version: '10' }).setToken(token)
 
-  // Parse the commands to be sent to Discord
-  const parsedCommands = commands.map((e: { default: Command }) => {
-    return e.default.registerCommand().toJSON()
-  })
-  if (triggerCommands) parsedCommands.push(...triggerCommands)
+  try {
+    console.log('Started refreshing application (/) commands.')
 
-  // Register the commands with Discord
-  rest
-    .put(Routes.applicationCommands(clientId), {
-      body: parsedCommands,
-    })
-    .catch(console.error)
+    await rest.put(Routes.applicationCommands(clientId), { body: commands })
 
-  return commands
+    console.log('Successfully reloaded application (/) commands.')
+  } catch (error) {
+    console.error(error)
+  }
 }
 
-// Main function to handle command registration and execution
 export default async function (token: string, clientId: string, client: Client) {
   // Register commands
   const commands = await registerCommands(token, clientId)
