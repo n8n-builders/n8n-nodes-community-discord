@@ -1,5 +1,26 @@
 # Changelog
 
+## Released (2025-09-21 0.7.6)
+
+### Improvements/refactoring
+
+- Enhanced logging architecture with workflow context tracking
+  - Added automatic workflow ID detection in log messages
+  - Implemented log level support (error, warn, info, debug) with debug as default
+  - Improved state-based workflow context management
+- Enhanced user experience for log messages
+  - Replaced internal webhook IDs with descriptive, user-friendly messages
+  - Added contextual information for Discord events in logs
+  - Improved debugging capabilities with meaningful log context
+- Updated GitHub Actions workflows to latest versions
+  - Updated checkout action to v4
+  - Updated setup-node action to v4
+  - Enhanced CI/CD pipeline with modern action versions
+- Code quality improvements
+  - Refactored addLog() function for better maintainability
+  - Added helper functions for workflow context management
+  - Enhanced type safety across logging infrastructure
+
 ## Released (2025-09-20 0.7.5)
 
 ### New Features
