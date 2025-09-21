@@ -14,6 +14,7 @@ export default function (ipc: typeof Ipc, client: Client): void {
         state.executionMatching[data.executionId] = {
           channelId: data.channelId,
           ...(data.userId ? { userId: data.userId } : {}),
+          ...(data.workflowId ? { workflowId: data.workflowId } : {}),
         }
 
         if (data.placeholderId && data.apiKey && data.baseUrl) {
@@ -70,7 +71,11 @@ export default function (ipc: typeof Ipc, client: Client): void {
                 }
               })
               .catch((error) => {
-                addLog(`Execution check error: ${error instanceof Error ? error.message : String(error)}`, client)
+                addLog(
+                  `Execution check error: ${error instanceof Error ? error.message : String(error)}`,
+                  client,
+                  'error',
+                )
 
                 // Clean up on error to prevent memory leaks
                 Reflect.deleteProperty(state.placeholderMatching, placeholderId)
@@ -82,7 +87,7 @@ export default function (ipc: typeof Ipc, client: Client): void {
         }
       }
     } catch (error) {
-      addLog(`Error in execution handler: ${error instanceof Error ? error.message : String(error)}`, client)
+      addLog(`Error in execution handler: ${error instanceof Error ? error.message : String(error)}`, client, 'error')
     }
   })
 }

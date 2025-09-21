@@ -52,6 +52,7 @@ const nodeDescription: INodeTypeDescription = {
 
 export interface IDiscordNodeMessageParameters {
   executionId: string
+  workflowId?: string
   triggerPlaceholder: boolean
   triggerChannel: boolean
   channelId: string
@@ -91,6 +92,7 @@ export interface IDiscordNodeMessageParameters {
 
 export interface IDiscordNodePromptParameters {
   executionId: string
+  workflowId?: string
   triggerPlaceholder: boolean
   triggerChannel: boolean
   channelId: string
@@ -122,6 +124,7 @@ export interface IDiscordNodePromptParameters {
 
 export interface IDiscordNodeActionParameters {
   executionId: string
+  workflowId?: string
   triggerPlaceholder: boolean
   triggerChannel: boolean
   channelId: string
@@ -180,6 +183,10 @@ export class Discord implements INodeType {
       })
 
       nodeParameters.executionId = executionId
+      const workflowId = this.getWorkflow().id
+      if (workflowId) {
+        nodeParameters.workflowId = workflowId
+      }
       if (credentials.apiKey) {
         nodeParameters.apiKey = credentials.apiKey
       }

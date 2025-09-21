@@ -6,6 +6,8 @@ import ipc from 'node-ipc'
 
 import state from './state'
 
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug'
+
 export interface ICredentials {
   clientId: string
   token: string
@@ -195,15 +197,73 @@ export const triggerWorkflow = async (
   return Boolean(res)
 }
 
-export const addLog = (message: string, client: Client) => {
-  LoggerProxy.info('Discord bot log', { message, botId: client.user?.id })
+export const addLog = (message: string, client: Client, logLevel: LogLevel = 'debug') => {
+  // Get workflow ID from current execution context
+  const workflowId = state.currentWorkflowId
+
+  const logContext = {
+    message,
+    botId: client.user?.id,
+    ...(workflowId && { workflowId }),
+  }
+
+  // Use the appropriate log level method
+  switch (logLevel) {
+    case 'error':
+      LoggerProxy.error('[n8n-nodes-discord]', logContext)
+      break
+    case 'warn':
+      LoggerProxy.warn('[n8n-nodes-discord]', logContext)
+      break
+    case 'info':
+      LoggerProxy.info('[n8n-nodes-discord]', logContext)
+      break
+    case 'debug':
+    default:
+      LoggerProxy.debug('[n8n-nodes-discord]', logContext)
+      break
+  }
+
   if (state.logs.length > 99) state.logs.shift()
-  const log = `${new Date().toISOString()} -  ${message}`
+  const workflowInfo = workflowId ? ` [workflow: ${workflowId}]` : ''
+  const levelInfo = logLevel !== 'debug' ? ` [${logLevel.toUpperCase()}]` : ''
+  const log = `${new Date().toISOString()} -${levelInfo}  ${message}${workflowInfo}`
   state.logs.push(log)
 
   if (state.ready && state.autoLogs) {
     const channel = client.channels.cache.get(state.autoLogsChannelId) as TextChannel
     if (channel) channel.send(`** ${log} **`)
+  }
+}
+
+// Helper functions to manage workflow execution context
+export const setCurrentWorkflowId = (workflowId: string | null): string | null => {
+  const previousWorkflowId = state.currentWorkflowId
+  state.currentWorkflowId = workflowId
+  return previousWorkflowId
+}
+
+export const getCurrentWorkflowId = (): string | null => {
+  return state.currentWorkflowId
+}
+
+// Execute a function within a specific workflow context
+export const withWorkflowContext = <T>(workflowId: string | null, fn: () => T | Promise<T>): T | Promise<T> => {
+  const previousWorkflowId = state.currentWorkflowId
+  state.currentWorkflowId = workflowId
+  try {
+    const result = fn()
+    if (result instanceof Promise) {
+      return result.finally(() => {
+        state.currentWorkflowId = previousWorkflowId
+      })
+    } else {
+      state.currentWorkflowId = previousWorkflowId
+      return result
+    }
+  } catch (error) {
+    state.currentWorkflowId = previousWorkflowId
+    throw error
   }
 }
 
@@ -244,14 +304,14 @@ export const pollingPromptData = (
         // Update message to show timeout
         message
           .edit({ content, components: [] })
-          .catch((error: Error) => addLog(`Failed to update timeout message: ${error.message}`, client))
+          .catch((error: Error) => addLog(`Failed to update timeout message: ${error.message}`, client, 'error'))
 
         // Send timeout notification
         const channel = client.channels.cache.get(message.channelId)
         if (channel?.isTextBased()) {
           ;(channel as TextChannel)
             .send('Timeout reached')
-            .catch((error: Error) => addLog(`Failed to send timeout message: ${error.message}`, client))
+            .catch((error: Error) => addLog(`Failed to send timeout message: ${error.message}`, client, 'error'))
         }
 
         resolve(true)
@@ -263,7 +323,7 @@ export const pollingPromptData = (
         remainingTime--
         message
           .edit({ content: `${content} (${remainingTime}s)` })
-          .catch((error: Error) => addLog(`Failed to update timer: ${error.message}`, client))
+          .catch((error: Error) => addLog(`Failed to update timer: ${error.message}`, client, 'warn'))
       }
 
       // Schedule the next check
@@ -289,6 +349,7 @@ export interface IExecutionData {
   apiKey: string
   baseUrl: string
   userId?: string
+  workflowId?: string
 }
 
 export const execution = (
@@ -298,6 +359,7 @@ export const execution = (
   apiKey: string,
   baseUrl: string,
   userId?: string,
+  workflowId?: string,
 ): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('timeout')), 15000)
@@ -309,6 +371,7 @@ export const execution = (
         apiKey,
         baseUrl,
         userId,
+        workflowId,
       })
       ipc.of.bot.on('execution', () => {
         clearTimeout(timeout)

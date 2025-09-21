@@ -3,8 +3,8 @@ import { Socket } from 'net'
 import Ipc from 'node-ipc'
 
 import { IDiscordNodeMessageParameters } from '../../Discord.node'
-import { addLog } from '../helpers'
-import state from '../state'
+import { addLog, withWorkflowContext } from '../helpers'
+import state, { IExecutionMatching } from '../state'
 
 /**
  * Creates a data URL file attachment
@@ -153,8 +153,8 @@ function createContent(nodeParameters: IDiscordNodeMessageParameters): string {
  */
 async function handlePlaceholderUpdate(
   channel: Channel,
-  executionMatching: { placeholderId?: string; channelId?: string },
-  sendObject: { content: string; embeds?: EmbedBuilder[]; files?: (AttachmentBuilder | string | Buffer)[] },
+  executionMatching: IExecutionMatching,
+  sendObject: object,
   channelId: string,
   socket: Socket,
   ipc: typeof Ipc,
@@ -169,7 +169,7 @@ async function handlePlaceholderUpdate(
   const message =
     'messages' in channel
       ? await channel.messages.fetch(realPlaceholderId).catch((e: Error) => {
-          addLog(`${e}`, client)
+          addLog(`${e}`, client, 'error')
         })
       : undefined
 
@@ -187,7 +187,7 @@ async function handlePlaceholderUpdate(
         setTimeout(() => retry(), 300)
       } else {
         await message.edit(sendObject).catch((e: Error) => {
-          addLog(`${e}`, client)
+          addLog(`${e}`, client, 'error')
         })
         ipc.server.emit(socket, 'send:message', {
           channelId,
@@ -208,7 +208,7 @@ async function handlePlaceholderUpdate(
 async function processMessageChannel(
   channel: Channel,
   nodeParameters: IDiscordNodeMessageParameters,
-  executionMatching: { placeholderId?: string; channelId?: string } | undefined,
+  executionMatching: IExecutionMatching | undefined,
   socket: Socket,
   channelId: string,
   ipc: typeof Ipc,
@@ -216,7 +216,7 @@ async function processMessageChannel(
 ): Promise<void> {
   if (!channel || !channel.isTextBased()) return
 
-  addLog(`send:message to ${channelId}`, client)
+  addLog(`send:message to ${channelId}`, client, 'info')
 
   // Create embed if needed
   const { embed, embedFiles } = createEmbed(nodeParameters)
@@ -248,7 +248,7 @@ async function processMessageChannel(
 
   // Send new message
   const message = (await (channel as TextChannel).send(sendObject).catch((e: Error) => {
-    addLog(`${e}`, client)
+    addLog(`${e}`, client, 'error')
   })) as Message
 
   ipc.server.emit(socket, 'send:message', { channelId, messageId: message?.id })
@@ -256,35 +256,37 @@ async function processMessageChannel(
 
 export default function (ipc: typeof Ipc, client: Client) {
   ipc.server.on('send:message', (nodeParameters: IDiscordNodeMessageParameters, socket: Socket) => {
-    try {
-      if (state.ready) {
-        const executionMatching = state.executionMatching[nodeParameters.executionId]
-        let channelId = ''
+    withWorkflowContext(nodeParameters.workflowId || null, () => {
+      try {
+        if (state.ready) {
+          const executionMatching = state.executionMatching[nodeParameters.executionId]
+          let channelId = ''
 
-        if (nodeParameters.triggerPlaceholder || nodeParameters.triggerChannel) {
-          channelId = executionMatching?.channelId || ''
-        } else {
-          channelId = nodeParameters.channelId
-        }
+          if (nodeParameters.triggerPlaceholder || nodeParameters.triggerChannel) {
+            channelId = executionMatching?.channelId || ''
+          } else {
+            channelId = nodeParameters.channelId
+          }
 
-        client.channels
-          .fetch(channelId)
-          .then(async (channel: Channel | null): Promise<void> => {
-            if (channel) {
-              await processMessageChannel(channel, nodeParameters, executionMatching, socket, channelId, ipc, client)
-            } else {
-              addLog(`Channel ${channelId} not found`, client)
+          client.channels
+            .fetch(channelId)
+            .then(async (channel: Channel | null): Promise<void> => {
+              if (channel) {
+                await processMessageChannel(channel, nodeParameters, executionMatching, socket, channelId, ipc, client)
+              } else {
+                addLog(`Channel ${channelId} not found`, client, 'warn')
+                ipc.server.emit(socket, 'send:message', false)
+              }
+            })
+            .catch((e: Error) => {
+              addLog(`${e}`, client, 'error')
               ipc.server.emit(socket, 'send:message', false)
-            }
-          })
-          .catch((e: Error) => {
-            addLog(`${e}`, client)
-            ipc.server.emit(socket, 'send:message', false)
-          })
+            })
+        }
+      } catch (e) {
+        addLog(`${e}`, client, 'error')
+        ipc.server.emit(socket, 'send:message', false)
       }
-    } catch (e) {
-      addLog(`${e}`, client)
-      ipc.server.emit(socket, 'send:message', false)
-    }
+    })
   })
 }

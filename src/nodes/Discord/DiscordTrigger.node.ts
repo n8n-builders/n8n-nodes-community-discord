@@ -134,6 +134,7 @@ export class DiscordTrigger implements INodeType {
           baseUrl,
           webhookId,
           active: this.getWorkflow().active,
+          workflowId: this.getWorkflow().id,
           credentials,
         })
       })
@@ -163,9 +164,17 @@ export class DiscordTrigger implements INodeType {
     const userRoles = input[0].json?.userRoles as string[]
     const attachments = input[0].json?.attachments as Attachment[]
 
-    await execution(executionId, placeholderId, channelId, credentials.apiKey, credentials.baseUrl, userId).catch((e) =>
-      handleExecutionError.call(this, e, 0, []),
-    )
+    const workflowId = this.getWorkflow().id
+
+    await execution(
+      executionId,
+      placeholderId,
+      channelId,
+      credentials.apiKey,
+      credentials.baseUrl,
+      userId,
+      workflowId,
+    ).catch((e) => handleExecutionError.call(this, e, 0, []))
     const returnData: INodeExecutionData[] = []
     returnData.push({
       json: {

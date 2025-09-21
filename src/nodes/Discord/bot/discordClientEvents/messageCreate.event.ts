@@ -1,6 +1,6 @@
 import { Client, Message } from 'discord.js'
 
-import { addLog, triggerWorkflow } from '../helpers'
+import { addLog, setCurrentWorkflowId, triggerWorkflow } from '../helpers'
 import state from '../state'
 
 export default function (client: Client): void {
@@ -9,47 +9,55 @@ export default function (client: Client): void {
       const content = message.content
       if (!content || message.author.bot) return
 
-      const botMention = message.mentions.has(client.user?.id || '')
+      const channelId = message.channelId
+      const messageChannel = state.channels[channelId]
 
-      if (state.channels[message.channelId] || state.channels.all) {
-        ;[...(state.channels[message.channelId] ?? []), ...(state.channels.all ?? [])].forEach(async (trigger) => {
-          if (trigger.type === 'message' && (trigger.pattern?.length || trigger.value?.length || trigger.botMention)) {
-            if (trigger.roleIds?.length) {
-              const hasRole = trigger.roleIds.some((role) =>
-                message.member?.roles.cache.map((r) => r.id).includes(role),
-              )
-              if (!hasRole) return
-            }
-
-            if (trigger.botMention && !botMention) return
+      if (messageChannel) {
+        await Promise.allSettled(
+          messageChannel.map(async (trigger) => {
+            if (!trigger.active) return
 
             let match = false
-            if ((trigger.pattern?.length && trigger.type === 'message') || trigger.value?.length) {
-              const regStr = trigger.pattern?.length ? trigger.pattern : `^${trigger.value}$`
-              const reg = new RegExp(regStr, trigger.caseSensitive ? '' : 'i')
+            const botMention = message.mentions.users.has(state.clientId)
+
+            if (trigger.messageRegex) {
+              const reg = new RegExp(trigger.messageRegex, 'gim')
               match = reg.test(content)
             } else if (botMention) {
               match = true
             }
 
             if (match) {
-              addLog(`triggerWorkflow ${trigger.webhookId}`, client)
-              const isEnabled = await triggerWorkflow(trigger.webhookId, message, '', state.baseUrl).catch(
-                (e: Error) => {
-                  addLog(`Error triggering workflow: ${e.message}`, client)
-                  return false
-                },
-              )
+              // Set workflow context for logging
+              const previousWorkflowId = setCurrentWorkflowId(trigger.workflowId || null)
+              try {
+                addLog(
+                  `Triggering workflow for message from ${message.author.username}: "${content.substring(0, 50)}..."`,
+                  client,
+                  'info',
+                )
+                const isEnabled = await triggerWorkflow(trigger.webhookId, message, '', state.baseUrl).catch(
+                  (e: Error) => {
+                    addLog(`Error triggering workflow: ${e.message}`, client, 'error')
+                    return false
+                  },
+                )
 
-              if (!isEnabled && trigger.active) {
-                trigger.active = false
+                if (!isEnabled && trigger.active) {
+                  trigger.active = false
+                }
+              } finally {
+                // Restore previous workflow context
+                setCurrentWorkflowId(previousWorkflowId)
               }
             }
-          }
-        })
+          }),
+        )
       }
     } catch (e) {
-      addLog(`Error in messageCreate: ${e instanceof Error ? e.message : String(e)}`, client)
+      // Clear any workflow context on error
+      setCurrentWorkflowId(null)
+      addLog(`Error in messageCreate: ${e instanceof Error ? e.message : String(e)}`, client, 'error')
     }
   })
 }

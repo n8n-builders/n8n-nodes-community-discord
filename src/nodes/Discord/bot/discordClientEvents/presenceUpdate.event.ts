@@ -21,7 +21,11 @@ export default function (client: Client): void {
 
             // Check if we need to trigger based on specific presence or 'any' presence
             if (trigger.presence === newPresence.status || trigger.presence === 'any') {
-              addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+              addLog(
+                `Triggering workflow for presence change: ${newPresence.user?.username} is now ${newPresence.status}`,
+                client,
+                'info',
+              )
               const isEnabled = await triggerWorkflow(
                 trigger.webhookId,
                 null,
@@ -31,7 +35,7 @@ export default function (client: Client): void {
                 newPresence.guild?.id ?? '',
                 newPresence.status,
               ).catch((e: Error) => {
-                addLog(`Error triggering workflow: ${e.message}`, client)
+                addLog(`Error triggering workflow: ${e.message}`, client, 'error')
                 return false
               })
 
@@ -43,7 +47,7 @@ export default function (client: Client): void {
         })
       }
     } catch (e) {
-      addLog(`Error in presenceUpdate: ${e instanceof Error ? e.message : String(e)}`, client)
+      addLog(`Error in presenceUpdate: ${e instanceof Error ? e.message : String(e)}`, client, 'error')
     }
   })
 }

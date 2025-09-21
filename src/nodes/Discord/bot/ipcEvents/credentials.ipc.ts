@@ -9,7 +9,7 @@ import state from '../state'
 export default function (ipc: typeof Ipc, client: Client): void {
   ipc.server.on('credentials', (data: ICredentials, socket: Socket) => {
     try {
-      addLog(`credentials state login ${state.login}, ready ${state.ready}`, client)
+      addLog(`credentials state login ${state.login}, ready ${state.ready}`, client, 'debug')
 
       if (
         (!state.login && !state.ready) ||
@@ -22,7 +22,7 @@ export default function (ipc: typeof Ipc, client: Client): void {
           client
             .login(data.token)
             .then(() => {
-              addLog('logged !', client)
+              addLog('logged !', client, 'info')
               state.ready = true
               state.login = false
               state.clientId = data.clientId
@@ -32,19 +32,19 @@ export default function (ipc: typeof Ipc, client: Client): void {
             })
             .catch((e: Error) => {
               state.login = false
-              addLog(`Login error: ${e.message}`, client)
+              addLog(`Login error: ${e.message}`, client, 'error')
               ipc.server.emit(socket, 'credentials', 'error')
             })
         }
       } else if (state.login) {
         ipc.server.emit(socket, 'credentials', 'different')
       } else {
-        addLog(`already logged in, ready: ${state.ready}`, client)
+        addLog(`already logged in, ready: ${state.ready}`, client, 'debug')
         ipc.server.emit(socket, 'credentials', 'already')
       }
     } catch (e) {
       state.login = false
-      addLog(`Error: ${e instanceof Error ? e.message : String(e)}`, client)
+      addLog(`Error: ${e instanceof Error ? e.message : String(e)}`, client, 'error')
       ipc.server.emit(socket, 'credentials', 'error')
     }
   })

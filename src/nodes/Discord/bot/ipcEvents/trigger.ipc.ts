@@ -16,6 +16,7 @@ import state from '../state'
 
 interface ITriggerParameters {
   webhookId: string
+  event: string
   roleIds: string[]
   roleUpdateIds: string[]
   type: string
@@ -50,11 +51,12 @@ export default function (ipc: typeof Ipc, client: Client): void {
       socket: Socket,
     ) => {
       try {
-        addLog(`trigger ${data.webhookId} update`, client)
+        addLog(`trigger ${data.webhookId} update`, client, 'info')
 
         // Update the trigger in state
         state.triggers[data.webhookId] = {
           ...data,
+          event: (data.event as string) || 'messageCreate', // Ensure event property exists
           channelIds: Array.isArray(data.channelIds) ? data.channelIds : [],
           roleIds: Array.isArray(data.roleIds) ? data.roleIds : [],
           roleUpdateIds: Array.isArray(data.roleUpdateIds) ? data.roleUpdateIds : [],
@@ -183,7 +185,7 @@ export default function (ipc: typeof Ipc, client: Client): void {
 
         ipc.server.emit(socket, 'trigger', true)
       } catch (error) {
-        addLog(`Error in trigger handler: ${error instanceof Error ? error.message : String(error)}`, client)
+        addLog(`Error in trigger handler: ${error instanceof Error ? error.message : String(error)}`, client, 'error')
         ipc.server.emit(socket, 'trigger', false)
       }
     },

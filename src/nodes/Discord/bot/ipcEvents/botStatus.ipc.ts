@@ -17,7 +17,7 @@ export default function (ipc: typeof Ipc, client: Client) {
           })
         }
       } catch (e) {
-        addLog(`${e}`, client)
+        addLog(`${e}`, client, 'error')
       }
     },
   )

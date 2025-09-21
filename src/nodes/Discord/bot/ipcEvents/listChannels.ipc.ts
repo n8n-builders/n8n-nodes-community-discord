@@ -22,10 +22,10 @@ export default function (ipc: typeof Ipc, client: Client) {
         })
 
         ipc.server.emit(socket, 'list:channels', channelsList)
-        addLog('list:channels', client)
+        addLog('list:channels', client, 'debug')
       }
     } catch (e) {
-      addLog(`${e}`, client)
+      addLog(`${e}`, client, 'error')
     }
   })
 }

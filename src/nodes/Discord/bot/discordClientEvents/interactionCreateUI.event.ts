@@ -43,7 +43,7 @@ async function checkTriggerRolePermissions(
         content: 'You are not allowed to do this',
         flags: MessageFlags.Ephemeral,
       })
-      .catch((e: Error) => addLog(e.message, client))
+      .catch((e: Error) => addLog(e.message, client, 'warn'))
   }
 
   return false
@@ -61,7 +61,9 @@ async function executeTriggerWorkflow(
 ): Promise<void> {
   if (!interaction.isButton() && !interaction.isStringSelectMenu()) return
 
-  addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+  const interactionType = interaction.isButton() ? 'button' : 'select menu'
+  const interactionId = interaction.isButton() ? interaction.customId : interaction.values.join(', ')
+  addLog(`Triggering workflow for UI interaction (${interactionType}): ${interactionId}`, client, 'info')
   const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
   const interactionValues = interaction.isButton() ? [interaction.customId] : interaction.values
 
@@ -80,11 +82,11 @@ async function executeTriggerWorkflow(
     interactionValues,
     userRoles,
   ).catch((e: Error) => {
-    addLog(e.message, client)
+    addLog(e.message, client, 'error')
     return false
   })
 
-  await interaction.deferUpdate().catch((e: Error) => addLog(e.message, client))
+  await interaction.deferUpdate().catch((e: Error) => addLog(e.message, client, 'warn'))
 
   if (isEnabled && trigger.placeholder) {
     await handlePlaceholder(client, channelKey, trigger.placeholder, placeholderMatchingId)
@@ -104,7 +106,7 @@ async function handlePlaceholder(
   if (!channel?.isTextBased()) return
 
   const placeholder = await (channel as TextChannel).send(placeholderContent).catch((e: Error) => {
-    addLog(e.message, client)
+    addLog(e.message, client, 'error')
     return null
   })
 
@@ -133,7 +135,7 @@ async function checkPromptPermissions(
           content: 'You are not allowed to do this',
           flags: MessageFlags.Ephemeral,
         })
-        .catch((e: Error) => addLog(e.message, client))
+        .catch((e: Error) => addLog(e.message, client, 'warn'))
       return false
     }
   }
@@ -146,7 +148,7 @@ async function checkPromptPermissions(
         content: 'You are not allowed to do this',
         flags: MessageFlags.Ephemeral,
       })
-      .catch((e: Error) => addLog(e.message, client))
+      .catch((e: Error) => addLog(e.message, client, 'warn'))
     return false
   }
 
@@ -167,7 +169,7 @@ async function processPromptInteraction(
   const buttonOrSelect = getSelectedOption(interaction, promptData)
   if (!buttonOrSelect?.label) return
 
-  addLog(`User interact: ${buttonOrSelect.label}`, client)
+  addLog(`User interact: ${buttonOrSelect.label}`, client, 'info')
 
   // Update prompt data with user's selection
   updatePromptDataWithSelection(promptData, interaction)
@@ -223,7 +225,7 @@ async function updatePromptUI(
   if (!interaction.isButton() && !interaction.isStringSelectMenu()) return
 
   // Remove components from message
-  await interaction.update({ components: [] }).catch((e: Error) => addLog(e.message, client))
+  await interaction.update({ components: [] }).catch((e: Error) => addLog(e.message, client, 'warn'))
 
   // Send confirmation message
   const channel = interaction.channel
@@ -231,7 +233,7 @@ async function updatePromptUI(
 
   await (channel as TextChannel)
     .send(`<@${interaction.user.id}>: ${selectedLabel}`)
-    .catch((e: Error) => addLog(e.message, client))
+    .catch((e: Error) => addLog(e.message, client, 'warn'))
 
   // Update original message after a delay
   setTimeout(async () => {
@@ -242,9 +244,9 @@ async function updatePromptUI(
           content: promptData.content,
           components: [],
         })
-        .catch((e: Error) => addLog(e.message, client))
+        .catch((e: Error) => addLog(e.message, client, 'warn'))
     } catch (e) {
-      addLog(`Failed to fetch message: ${e instanceof Error ? e.message : String(e)}`, client)
+      addLog(`Failed to fetch message: ${e instanceof Error ? e.message : String(e)}`, client, 'error')
     }
   }, 1000)
 }
@@ -271,7 +273,7 @@ export default function (client: Client): void {
       // Process the user's interaction with the prompt
       await processPromptInteraction(interaction, promptData, client)
     } catch (e) {
-      addLog(`Error in interactionCreateUI: ${e instanceof Error ? e.message : String(e)}`, client)
+      addLog(`Error in interactionCreateUI: ${e instanceof Error ? e.message : String(e)}`, client, 'error')
     }
   })
 }

@@ -28,12 +28,12 @@ export default function (client: Client): void {
                 content: 'You do not have permission',
                 flags: MessageFlags.Ephemeral,
               })
-              .catch((e: Error) => addLog(e.message, client))
+              .catch((e: Error) => addLog(e.message, client, 'warn'))
             return
           }
         }
 
-        addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+        addLog(`Triggering workflow for slash command: /${interaction.commandName}`, client, 'info')
         const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
 
         await interaction
@@ -41,7 +41,7 @@ export default function (client: Client): void {
             content: `/${interaction.commandName} sent`,
             flags: MessageFlags.Ephemeral,
           })
-          .catch((e: Error) => addLog(e.message, client))
+          .catch((e: Error) => addLog(e.message, client, 'error'))
 
         const isEnabled = await triggerWorkflow(
           trigger.webhookId,
@@ -58,7 +58,7 @@ export default function (client: Client): void {
           input ? [input] : undefined,
           userRoles,
         ).catch((e: Error) => {
-          addLog(e.message, client)
+          addLog(e.message, client, 'error')
           return false
         })
 
@@ -67,7 +67,7 @@ export default function (client: Client): void {
           if (!channel || !channel.isTextBased()) continue
 
           const placeholder = await (channel as TextChannel).send(trigger.placeholder).catch((e: Error) => {
-            addLog(e.message, client)
+            addLog(e.message, client, 'error')
             return null
           })
 
@@ -78,9 +78,9 @@ export default function (client: Client): void {
       }
     } catch (e) {
       if (e instanceof Error) {
-        addLog(e.message, client)
+        addLog(e.message, client, 'error')
       } else {
-        addLog(`Unknown error: ${String(e)}`, client)
+        addLog(`Unknown error: ${String(e)}`, client, 'error')
       }
     }
   })

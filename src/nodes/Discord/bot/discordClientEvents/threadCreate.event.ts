@@ -34,7 +34,7 @@ export default function (client: Client): void {
             }
 
             if (match) {
-              addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+              addLog(`Triggering workflow for new thread: "${thread.name}"`, client, 'info')
               const isEnabled = await triggerWorkflow(
                 trigger.webhookId,
                 null,
@@ -43,7 +43,7 @@ export default function (client: Client): void {
                 undefined,
                 thread.id,
               ).catch((e: Error) => {
-                addLog(`Error triggering workflow: ${e.message}`, client)
+                addLog(`Error triggering workflow: ${e.message}`, client, 'error')
                 return false
               })
 
@@ -55,7 +55,7 @@ export default function (client: Client): void {
         })
       }
     } catch (e) {
-      addLog(`Error in threadCreate: ${e instanceof Error ? e.message : String(e)}`, client)
+      addLog(`Error in threadCreate: ${e instanceof Error ? e.message : String(e)}`, client, 'error')
     }
   })
 }

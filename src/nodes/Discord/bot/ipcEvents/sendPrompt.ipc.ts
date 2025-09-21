@@ -15,13 +15,14 @@ import {
 import { Socket } from 'net'
 import Ipc from 'node-ipc'
 
-import { addLog, pollingPromptData } from '../helpers'
+import { addLog, pollingPromptData, withWorkflowContext } from '../helpers'
 import state, { IPromptData } from '../state'
 
 interface PromptRequestData {
   webhookId: string
   channelId: string
   executionId: string
+  workflowId?: string
   userId?: string
   content: string
   timeout?: number
@@ -65,7 +66,7 @@ interface PromptRequestData {
 
 // Helper function to get the guild and channel
 async function getGuildAndChannel(data: PromptRequestData, client: Client, socket: Socket, ipc: typeof Ipc) {
-  addLog(`sendPrompt ${data.webhookId}`, client)
+  addLog(`sendPrompt ${data.webhookId}`, client, 'info')
 
   const guild = client.guilds.cache.first()
   if (!guild) {
@@ -112,7 +113,7 @@ function createEmbed(data: PromptRequestData, client: Client) {
     try {
       embed = new EmbedBuilder().setDescription(data.content).setColor(data.colorHex as ColorResolvable)
     } catch {
-      addLog(`Invalid color: ${data.colorHex}`, client)
+      addLog(`Invalid color: ${data.colorHex}`, client, 'warn')
     }
   }
   return embed
@@ -299,7 +300,7 @@ async function handlePromptProcess(data: PromptRequestData, socket: Socket, ipc:
   // Send the message
   let message: Message<boolean> | null = null
   message = (await channel.send(messageOptions).catch((e: Error) => {
-    addLog(`Error sending message: ${e.message}`, client)
+    addLog(`Error sending message: ${e.message}`, client, 'error')
     return null
   })) as Message<boolean> | null
 
@@ -353,11 +354,13 @@ async function handlePolling(
 
 export default function (ipc: typeof Ipc, client: Client): void {
   ipc.server.on('sendPrompt', async (data: PromptRequestData, socket: Socket) => {
-    try {
-      await handlePromptProcess(data, socket, ipc, client)
-    } catch (e) {
-      addLog(`Error in sendPrompt: ${e instanceof Error ? e.message : String(e)}`, client)
-      ipc.server.emit(socket, 'sendPrompt', { error: e instanceof Error ? e.message : String(e) })
-    }
+    withWorkflowContext(data.workflowId || null, async () => {
+      try {
+        await handlePromptProcess(data, socket, ipc, client)
+      } catch (e) {
+        addLog(`Error in sendPrompt: ${e instanceof Error ? e.message : String(e)}`, client, 'error')
+        ipc.server.emit(socket, 'sendPrompt', { error: e instanceof Error ? e.message : String(e) })
+      }
+    })
   })
 }

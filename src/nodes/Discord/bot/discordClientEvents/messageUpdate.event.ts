@@ -14,15 +14,15 @@ export default function (client: Client): void {
         )
 
         matchedTriggers.forEach(async (trigger) => {
-          addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+          addLog(`Triggering workflow for message edit from ${newMessage.author.username}`, client, 'info')
 
           await triggerWorkflow(trigger.webhookId, newMessage, '', state.baseUrl).catch((e: Error) => {
-            addLog(`Error triggering workflow: ${e.message}`, client)
+            addLog(`Error triggering workflow: ${e.message}`, client, 'error')
           })
         })
       }
     } catch (e) {
-      addLog(`${e}`, client)
+      addLog(`${e}`, client, 'error')
     }
   })
 }

@@ -2,11 +2,13 @@ import { Collection } from 'discord.js'
 
 export interface ITrigger {
   webhookId: string
+  event: string
   roleIds: string[]
   roleUpdateIds: string[]
   type: string
   channelIds?: string[]
   pattern?: string
+  messageRegex?: string
   value?: string
   name?: string
   description?: string
@@ -19,12 +21,14 @@ export interface ITrigger {
   botMention?: boolean
   caseSensitive?: boolean
   presence?: string
+  workflowId?: string
 }
 
 export interface IExecutionMatching {
   channelId: string
   userId?: string
   placeholderId?: string
+  workflowId?: string
 }
 
 export interface ButtonOption {
@@ -96,4 +100,5 @@ export default {
   placeholderMatching: new Collection<string, string>(),
   placeholderWaiting: new Collection<string, boolean>(),
   promptData: {} as Record<string, IPromptData>,
+  currentWorkflowId: null as string | null, // Track current execution context
 }

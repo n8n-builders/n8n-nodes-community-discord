@@ -20,10 +20,10 @@ export default function (ipc: typeof Ipc, client: Client) {
         })
 
         ipc.server.emit(socket, 'list:roles', rolesList)
-        addLog('list:roles', client)
+        addLog('list:roles', client, 'debug')
       }
     } catch (e) {
-      addLog(`${e}`, client)
+      addLog(`${e}`, client, 'error')
     }
   })
 }

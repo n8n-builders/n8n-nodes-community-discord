@@ -16,7 +16,8 @@ export default function (client: Client) {
             if (!hasRole) return
           }
           if (trigger.type === 'userLeaves') {
-            addLog(`triggerWorkflow ${trigger.webhookId}`, client)
+            addLog(`Triggering workflow for member leaving: ${member.user.username}`, client, 'info')
+
             const placeholderMatchingId = trigger.placeholder ? generateUniqueId() : ''
             const isEnabled = await triggerWorkflow(
               trigger.webhookId,
@@ -30,14 +31,14 @@ export default function (client: Client) {
               const channel = client.channels.cache.get(key)
               const placeholder = await (channel as TextChannel)
                 .send(trigger.placeholder)
-                .catch((e: unknown) => addLog(`${(e as Error).message}`, client))
+                .catch((e: unknown) => addLog(`${(e as Error).message}`, client, 'error'))
               if (placeholder) placeholderLoading(placeholder, placeholderMatchingId, trigger.placeholder)
             }
           }
         })
       })
     } catch (e) {
-      addLog(`${e}`, client)
+      addLog(`${e}`, client, 'error')
     }
   })
 }
