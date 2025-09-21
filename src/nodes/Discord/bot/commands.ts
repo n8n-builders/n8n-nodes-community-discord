@@ -2,6 +2,7 @@ import { Client, GuildMember, Interaction, Message, PermissionsBitField, REST, S
 import { LoggerProxy } from 'n8n-workflow'
 
 // Import Routes using require since TypeScript has issues with the ES6 import
+// skipcq: JS-0359
 const { Routes } = require('discord.js')
 
 // Interface to define the structure of each command
