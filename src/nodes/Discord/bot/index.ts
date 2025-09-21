@@ -1,4 +1,5 @@
-import { Client, GatewayIntentBits, Partials } from 'discord.js'
+import { Client, IntentsBitField, Partials } from 'discord.js'
+import { LoggerProxy } from 'n8n-workflow'
 import Ipc from 'node-ipc'
 
 import guildMemberAdd from './discordClientEvents/guildMemberAdd.event'
@@ -31,12 +32,12 @@ export default function bot() {
     // Create a new Discord client with required intents for modern Discord API
     const client = new Client({
       intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildPresences,
-        GatewayIntentBits.GuildMessageReactions,
+        IntentsBitField.Flags.Guilds,
+        IntentsBitField.Flags.GuildMessages,
+        IntentsBitField.Flags.MessageContent,
+        IntentsBitField.Flags.GuildMembers,
+        IntentsBitField.Flags.GuildPresences,
+        IntentsBitField.Flags.GuildMessageReactions,
       ],
       partials: [Partials.Message, Partials.Channel, Partials.Reaction],
     })
@@ -69,6 +70,6 @@ export default function bot() {
 
     Ipc.server.start()
   } catch (e) {
-    console.log(e)
+    LoggerProxy.error('Discord bot startup failed', { error: e instanceof Error ? e.message : String(e) })
   }
 }

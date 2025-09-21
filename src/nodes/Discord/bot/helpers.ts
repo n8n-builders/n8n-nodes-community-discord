@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { Client, Message, TextChannel, User } from 'discord.js'
 import { hexoid } from 'hexoid'
-import { INodePropertyOptions } from 'n8n-workflow'
+import { INodePropertyOptions, LoggerProxy } from 'n8n-workflow'
 import ipc from 'node-ipc'
 
 import state from './state'
@@ -179,7 +179,11 @@ export const triggerWorkflow = async (
       { headers },
     )
     .catch((e: Error) => {
-      console.log(e)
+      LoggerProxy.warn('Discord webhook execution failed', {
+        error: e.message,
+        webhookId,
+        stack: e.stack,
+      })
       if (state.triggers[webhookId] && !state.testMode) {
         state.triggers[webhookId].active = false
         ipc.connectTo('bot', () => {
@@ -192,7 +196,7 @@ export const triggerWorkflow = async (
 }
 
 export const addLog = (message: string, client: Client) => {
-  console.log(message)
+  LoggerProxy.info('Discord bot log', { message, botId: client.user?.id })
   if (state.logs.length > 99) state.logs.shift()
   const log = `${new Date().toISOString()} -  ${message}`
   state.logs.push(log)

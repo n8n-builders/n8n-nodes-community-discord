@@ -9,7 +9,7 @@ import {
   INodeType,
   INodeTypeDescription,
   JsonObject,
-  NodeConnectionType,
+  NodeConnectionTypes,
   NodeOperationError,
 } from 'n8n-workflow'
 
@@ -29,15 +29,17 @@ if (!process.send) bot()
 const nodeDescription: INodeTypeDescription = {
   displayName: 'Discord Send',
   name: 'discord',
-  group: ['discord'],
+  group: ['output'],
   version: 1,
+  subtitle: '={{$parameter["type"] || "message"}}',
   description: 'Sends messages, embeds and prompts to Discord',
   defaults: {
     name: 'Discord Send',
   },
+  usableAsTool: true,
   icon: 'file:discord.svg',
-  inputs: [NodeConnectionType.Main],
-  outputs: [NodeConnectionType.Main],
+  inputs: [NodeConnectionTypes.Main],
+  outputs: [NodeConnectionTypes.Main],
   credentials: [
     {
       name: 'discordApi',
@@ -80,6 +82,11 @@ export interface IDiscordNodeMessageParameters {
       url: string
     }[]
   }
+  type?: string
+  placeholder?: boolean
+  apiKey?: string
+  baseUrl?: string
+  auditLogReason?: string
 }
 
 export interface IDiscordNodePromptParameters {
@@ -90,7 +97,7 @@ export interface IDiscordNodePromptParameters {
   mentionRoles: string[]
   content: string
   timeout: number
-  placeholder: string
+  placeholder: boolean
   apiKey: string
   baseUrl: string
   buttons: {
@@ -166,11 +173,16 @@ export class Discord implements INodeType {
     const items: INodeExecutionData[] = this.getInputData()
     for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
       const nodeParameters: Record<string, string | number | boolean | object> = {}
-      Object.keys(this.getNode().parameters).forEach((key) => {
+
+      // Get all node parameters
+      Object.keys(this.getNode().parameters || {}).forEach((key) => {
         nodeParameters[key] = this.getNodeParameter(key, itemIndex, '') as string | number | boolean | object
       })
+
       nodeParameters.executionId = executionId
-      nodeParameters.apiKey = credentials.apiKey
+      if (credentials.apiKey) {
+        nodeParameters.apiKey = credentials.apiKey
+      }
       nodeParameters.baseUrl = credentials.baseUrl
       nodeParameters.auditLogReason = this.getNodeParameter('auditLogReason', itemIndex, '') as string
 

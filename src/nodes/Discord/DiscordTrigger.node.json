@@ -14,5 +14,6 @@
         "url": "https://github.com/kmcbride3/n8n-nodes-discord"
       }
     ]
-  }
+  },
+  "webhook": true
 }

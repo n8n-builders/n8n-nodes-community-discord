@@ -1,4 +1,5 @@
 import { Interaction, SlashCommandBuilder, SlashCommandIntegerOption, TextChannel } from 'discord.js'
+import { LoggerProxy } from 'n8n-workflow'
 
 const name = 'clear'
 
@@ -20,7 +21,9 @@ export default {
   executeCommand: async (param: number, interaction: Interaction): Promise<string> => {
     const channel = interaction.channel
     const nb = param > 0 && param <= 100 ? param : 100
-    await (channel as TextChannel).bulkDelete(nb).catch((e: Error) => console.log(e))
+    await (channel as TextChannel)
+      .bulkDelete(nb)
+      .catch((e: Error) => LoggerProxy.warn('Failed to bulk delete Discord messages', { error: e.message, count: nb }))
     return 'Done!'
   },
 }

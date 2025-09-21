@@ -1,21 +1,20 @@
-import {
-  Client,
-  GuildMember,
-  Interaction,
-  PermissionResolvable,
-  REST,
-  RESTPostAPIApplicationCommandsJSONBody,
-  Routes,
-} from 'discord.js'
+import { Client, GuildMember, Interaction, Message, PermissionsBitField, REST, SlashCommandBuilder } from 'discord.js'
+import { LoggerProxy } from 'n8n-workflow'
+
+// Import Routes using require since TypeScript has issues with the ES6 import
+const { Routes } = require('discord.js')
 
 // Interface to define the structure of each command
 interface Command {
-  registerCommand: () => { toJSON: () => RESTPostAPIApplicationCommandsJSONBody }
+  registerCommand: () => SlashCommandBuilder
   executeCommand: (input: string | undefined, interaction: Interaction) => Promise<string>
   params?: {
     autoRemove?: boolean
   }
 }
+
+// Type for command registration data
+export type CommandRegistrationData = ReturnType<SlashCommandBuilder['toJSON']>
 
 // List of command names to import dynamically
 const imports = ['clear', 'test', 'logs']
@@ -35,24 +34,32 @@ imports.forEach((commandName) => {
 export const registerCommands = async (
   token: string,
   clientId: string,
-  commands: RESTPostAPIApplicationCommandsJSONBody[] = [],
+  commands: CommandRegistrationData[] = [],
 ): Promise<void> => {
   const rest = new REST({ version: '10' }).setToken(token)
 
   try {
-    console.log('Started refreshing application (/) commands.')
+    LoggerProxy.info('Starting Discord application command refresh')
 
     await rest.put(Routes.applicationCommands(clientId), { body: commands })
 
-    console.log('Successfully reloaded application (/) commands.')
+    LoggerProxy.info('Successfully reloaded Discord application commands')
   } catch (error) {
-    console.error(error)
+    LoggerProxy.error('Failed to reload Discord application commands', {
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 
 export default async function (token: string, clientId: string, client: Client) {
-  // Register commands
-  const commands = await registerCommands(token, clientId)
+  // Load all commands
+  const loadedCommands = await Promise.all(awaitingCommands)
+
+  // Extract command data for registration
+  const commandData = loadedCommands.map((cmd) => cmd.default.registerCommand().toJSON())
+
+  // Register commands with Discord
+  await registerCommands(token, clientId, commandData)
 
   // Command execution handler when an interaction is created
   client.on('interactionCreate', async (interaction: Interaction) => {
@@ -65,7 +72,7 @@ export default async function (token: string, clientId: string, client: Client) 
       }
 
       const member = interaction.member as GuildMember
-      if (!member.permissions.has('ADMINISTRATOR' as PermissionResolvable)) return
+      if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) return
 
       const { commandName, options } = interaction
 
@@ -73,22 +80,28 @@ export default async function (token: string, clientId: string, client: Client) 
       const i = imports.indexOf(commandName)
       if (i === -1) return
 
-      const command = commands[i].default
+      const command = loadedCommands[i].default
 
       // Execute the command
+      const inputValue = options.get('input')?.value
       const reply = await command
-        .executeCommand(options.get('input')?.value, interaction)
+        .executeCommand(typeof inputValue === 'string' ? inputValue : undefined, interaction)
         .catch((e: Error) => e.message)
-      const botReply = await interaction.reply({ content: reply, fetchReply: true }).catch((e) => e)
+
+      const botReply = await interaction.reply({ content: reply, fetchReply: true })
 
       // Handle auto-remove of messages based on command params or if the reply is "Done!"
       if (command.params?.autoRemove || reply === 'Done!') {
         setTimeout(() => {
-          botReply.delete().catch((e: Error) => console.log(e))
+          if (botReply && typeof botReply === 'object' && 'delete' in botReply) {
+            ;(botReply as Message)
+              .delete()
+              .catch((e: Error) => LoggerProxy.warn('Failed to delete Discord bot reply', { error: e.message }))
+          }
         }, 2000)
       }
     } catch (e) {
-      console.log(e)
+      LoggerProxy.error('Discord command execution failed', { error: e instanceof Error ? e.message : String(e) })
     }
   })
 }

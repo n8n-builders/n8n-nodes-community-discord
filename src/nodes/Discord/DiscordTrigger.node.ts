@@ -13,7 +13,8 @@ import {
   IWebhookFunctions,
   IWebhookResponseData,
   JsonObject,
-  NodeConnectionType,
+  LoggerProxy,
+  NodeConnectionTypes,
   NodeOperationError,
 } from 'n8n-workflow'
 import ipc from 'node-ipc'
@@ -31,9 +32,9 @@ const nodeDescription: INodeTypeDescription = {
   displayName: 'Discord Trigger',
   name: 'discordTrigger',
   icon: 'file:discord.svg',
-  group: ['trigger', 'discord'],
+  group: ['trigger'],
   version: 1,
-  subtitle: '',
+  subtitle: '={{$parameter["event"] || "Discord event"}}',
   description: 'Trigger based on Discord events',
   eventTriggerDescription: '',
   mockManualExecution: true,
@@ -43,7 +44,7 @@ const nodeDescription: INodeTypeDescription = {
   },
   // nodelinter-ignore-next-line WRONG_NUMBER_OF_INPUTS_IN_REGULAR_NODE_DESCRIPTION
   inputs: [],
-  outputs: [NodeConnectionType.Main],
+  outputs: [NodeConnectionTypes.Main],
   credentials: [
     {
       name: 'discordApi',
@@ -63,11 +64,16 @@ const nodeDescription: INodeTypeDescription = {
 }
 
 export class DiscordTrigger implements INodeType {
-  description: INodeTypeDescription = nodeDescription
+  readonly description: INodeTypeDescription = nodeDescription
 
   methods = {
     credentialTest: {
-      discordApiTest,
+      discordApiTest: async function (
+        this: ICredentialTestFunctions,
+        credential: ICredentialsDecrypted,
+      ): Promise<INodeCredentialTestResult> {
+        return await discordApiTest.call(this, credential)
+      },
     },
     loadOptions: {
       async getChannels(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
@@ -112,7 +118,7 @@ export class DiscordTrigger implements INodeType {
           baseUrl = match[0]
         }
       } catch (e) {
-        console.log(e)
+        LoggerProxy.warn('Failed to parse Discord base URL', { error: e instanceof Error ? e.message : String(e) })
       }
 
       ipc.connectTo('bot', () => {
