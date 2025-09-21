@@ -1,5 +1,53 @@
 # Changelog
 
+## Released (2025-09-20 0.7.5)
+
+### New Features
+
+- Added GitHub Copilot AI agent compatibility with `usableAsTool: true` configuration
+- Enhanced Discord integration with latest Discord.js v14.22.1 features
+- Implemented comprehensive type safety across all Discord interactions
+
+### Improvements/refactoring
+
+- **BREAKING CHANGE:** Migrated from Discord.js v13 to v14 patterns
+  - Updated intents to use `IntentsBitField.Flags` instead of string literals
+- Modernized n8n node architecture
+  - Corrected Discord node classification from 'transform' to 'output'
+  - Updated to latest n8n-core (v1.111.0) and n8n-workflow (v1.109.0) APIs
+- Enhanced type safety and code quality
+  - Eliminated all `any` type usage across the codebase
+  - Added proper TypeScript definitions for Discord.js v14 components
+  - Implemented `CommandRegistrationData` type for type-safe command handling
+- Improved logging and error handling
+  - Replaced console.log with structured `LoggerProxy` across bot infrastructure
+  - Added contextual metadata for better debugging and monitoring
+  - Enhanced error handling with proper type safety
+- Updated build and development tooling
+  - Updated ESLint to v9.36.0 with modern flat config
+  - Updated TypeScript to v5.9.2 with improved type checking
+  - Updated Prettier to v3.6.2 for consistent code formatting
+  - Enhanced PNPM overrides for better dependency management
+
+### Dependency Updates
+
+- **discord.js**: ^14.18.0 → ^14.22.1 (latest v14 features and security fixes)
+- **n8n-core**: ^1.87.0 → ^1.111.0 (major n8n framework update)
+- **n8n-workflow**: ^1.82.0 → ^1.109.0 (modern n8n workflow API)
+- **axios**: ^1.8.4 → ^1.12.2 (security and compatibility updates)
+- **eslint**: ^9.24.0 → ^9.36.0 (latest linting rules and fixes)
+- **typescript**: ^5.8.3 → ^5.9.2 (compiler improvements)
+- **@types/node**: ^22.14.1 → ^24.5.2 (Node.js v24 type definitions)
+- **typescript-eslint**: ^8.29.1 → ^8.44.0 (TypeScript tooling updates)
+- Multiple minor updates for prettier, gulp, and ESLint plugins
+
+### Infrastructure Changes
+
+- Restructured Copilot instructions to `.github/instructions/` directory
+- Enhanced bot command system with full type safety
+- Improved IPC communication with proper type definitions
+- Updated package.json with latest dependency overrides and peer dependency rules
+
 ## Released (2025-04-13 0.7.4)
 
 ### New Features
