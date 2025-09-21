@@ -1,6 +1,7 @@
 # n8n-nodes-discord Development Guide
 
 ## Technology Stack & Versions
+
 - `discord.js` v14.22.1 for Discord API integration
 - `Node.js` v23.10.0 runtime
 - `n8n-core` v1.111.0 for n8n core functionality
@@ -9,6 +10,7 @@
 - `node-ipc` v12.0.0 for inter-process communication
 
 ## Code Standards
+
 - Never use the `any` type in TypeScript; use `unknown` only when necessary
 - Follow ESLint and Prettier rules configured in the project:
   - Use single quotes for strings
@@ -25,6 +27,7 @@
 - Avoid object injection sinks to prevent security vulnerabilities
 
 ## Architecture Overview
+
 This package provides n8n nodes for Discord integration with these primary components:
 
 1. **Discord Send Node** (`Discord.node.ts`)
@@ -42,12 +45,16 @@ This package provides n8n nodes for Discord integration with these primary compo
 ## Event Handling Architecture
 
 ### IPC Event Handling (`ipcEvents` folder)
+
 The `ipcEvents` folder contains handlers for IPC communication between n8n nodes and the Discord bot:
 
 - **`trigger.ipc.ts`**: Manages trigger registration, connection tracking, and command registration
+
   ```typescript
   ipc.server.on('trigger', (data, socket) => {
-    state.triggers[data.webhookId] = {/* ... */}
+    state.triggers[data.webhookId] = {
+      /* ... */
+    }
     triggerConnections.set(data.webhookId, socket)
   })
   ```
@@ -55,6 +62,7 @@ The `ipcEvents` folder contains handlers for IPC communication between n8n nodes
 - Other IPC handlers manage interactions, messages, and bot status updates
 
 ### Discord Event Handling (`discordClientEvents` folder)
+
 The `discordClientEvents` folder contains handlers for Discord.js events:
 
 - Events are captured from the Discord client and transformed into appropriate trigger events
@@ -64,9 +72,11 @@ The `discordClientEvents` folder contains handlers for Discord.js events:
 ## Key Communication Patterns
 
 ### IPC Communication
+
 The nodes and bot communicate using `node-ipc` with these patterns:
 
 - **Trigger Registration**:
+
   ```typescript
   ipc.of.bot.emit('trigger', {
     ...parameters,
@@ -88,17 +98,22 @@ The nodes and bot communicate using `node-ipc` with these patterns:
   ```
 
 ## Workflow Execution Recording
+
 - Workflows are recorded in n8n by using `this.emit([data])` in the trigger method
 - In `DiscordTrigger.node.ts`, the `triggerEvent` IPC event handler emits data to n8n
 
 ## Error Handling
+
 Use the established error handling pattern:
+
 ```typescript
 handleExecutionError.call(this, e, itemIndex, returnData)
 ```
 
 ## Reconnection Logic
+
 Include reconnection handling for IPC communication:
+
 ```typescript
 ipc.of.bot.on('disconnect', () => {
   setTimeout(() => {
