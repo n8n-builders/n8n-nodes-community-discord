@@ -9,7 +9,6 @@ on:
     - cron: '30 1 * * *'
 
 permissions:
-  actions: write
   issues: write
   pull-requests: write
 
