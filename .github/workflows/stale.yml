@@ -3,7 +3,7 @@
 # You can adjust the behavior by modifying this file.
 # For more information, see:
 # https://github.com/actions/stale
-name: 'Close stale issues and PR'
+name: 'Close stale issues and PRs'
 on:
   schedule:
     - cron: '30 1 * * *'
